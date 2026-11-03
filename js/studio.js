@@ -568,6 +568,70 @@ function studioRecipeRuntimeIndex(definition){
     (recipe.count||1)===(definition.count||1)&&recipe.tier===definition.tier&&
     JSON.stringify(recipe.need)===JSON.stringify(definition.need));
 }
+function studioDeleteDefinition(entry){
+  if(entry.kind==='配方'){
+    studioRemoveCraftingRecipe(entry.recipeIndex);
+    return;
+  }
+  const previous={
+    items:{...modDefinitions.items},blocks:{...modDefinitions.blocks},
+    machines:{...modDefinitions.machines},maps:modDefinitions.maps,
+    recipes:modDefinitions.recipes,skillNodes:modDefinitions.skillNodes,
+    machineRecipes:modDefinitions.machineRecipes,studioBlueprints:modDefinitions.studioBlueprints,
+    runtimeItems:{...ITEMS},runtimeMachines:{...MACHINE_TYPES},
+    runtimeRecipes:[...RECIPES],runtimeSkills:SKILLS.map(skill=>({...skill,requires:[...skill.requires]})),
+    skillState:G&&G.skills?{...G.skills}:null,
+    unlockedSkills:G&&G.unlockedSkills?[...G.unlockedSkills]:null,
+    skillSlots:G&&G.skillSlots?[...G.skillSlots]:null,
+  };
+  const restoreMap=(target,snapshot)=>{
+    for(const key of Object.keys(target))if(!Object.hasOwn(snapshot,key))delete target[key];
+    Object.assign(target,snapshot);
+  };
+  const removeItem=id=>{
+    delete ITEMS[id];delete modDefinitions.items[id];delete modDefinitions.blocks[id];
+    const removed=modDefinitions.recipes.filter(recipe=>recipe.out===id||Object.hasOwn(recipe.need,id));
+    modDefinitions.recipes=modDefinitions.recipes.filter(recipe=>!removed.includes(recipe));
+    for(const recipe of removed){const index=studioRecipeRuntimeIndex(recipe);if(index>=0)RECIPES.splice(index,1);}
+    modDefinitions.studioBlueprints=modDefinitions.studioBlueprints.filter(item=>
+      !(item.kind==='block-properties'&&item.id===id));
+  };
+  try{
+    if(entry.kind==='地图'){
+      modDefinitions.maps={...modDefinitions.maps};delete modDefinitions.maps[entry.id];
+    }else if(entry.kind==='技能'){
+      SKILLS.splice(0,SKILLS.length,...SKILLS.filter(skill=>skill.id!==entry.id));
+      modDefinitions.skillNodes=modDefinitions.skillNodes.filter(skill=>skill.id!==entry.id)
+        .map(skill=>({...skill,requires:skill.requires.filter(id=>id!==entry.id)}));
+      for(const skill of SKILLS)skill.requires=skill.requires.filter(id=>id!==entry.id);
+      if(G&&G.skills)delete G.skills[entry.id];
+      if(G&&G.unlockedSkills)G.unlockedSkills=G.unlockedSkills.filter(id=>id!==entry.id);
+      if(G&&G.skillSlots)G.skillSlots=G.skillSlots.map(id=>id===entry.id?null:id);
+    }else if(entry.kind==='机器'){
+      const machine=modDefinitions.machines[entry.id];
+      delete MACHINE_TYPES[entry.id];delete modDefinitions.machines[entry.id];
+      modDefinitions.machineRecipes=modDefinitions.machineRecipes.filter(item=>item.machine!==entry.id);
+      if(machine)removeItem(machine.blockItem);
+    }else if(entry.kind==='方块'||entry.kind==='物品'){
+      const machine=Object.values(modDefinitions.machines).find(item=>item.blockItem===entry.id);
+      if(machine){delete MACHINE_TYPES[machine.id];delete modDefinitions.machines[machine.id];
+        modDefinitions.machineRecipes=modDefinitions.machineRecipes.filter(item=>item.machine!==machine.id);}
+      removeItem(entry.id);
+    }
+    persistModDefinitions();
+  }catch(error){
+    restoreMap(ITEMS,previous.runtimeItems);restoreMap(MACHINE_TYPES,previous.runtimeMachines);
+    RECIPES.splice(0,RECIPES.length,...previous.runtimeRecipes);
+    SKILLS.splice(0,SKILLS.length,...previous.runtimeSkills);
+    Object.assign(modDefinitions,{items:previous.items,blocks:previous.blocks,machines:previous.machines,
+      maps:previous.maps,recipes:previous.recipes,skillNodes:previous.skillNodes,
+      machineRecipes:previous.machineRecipes,studioBlueprints:previous.studioBlueprints});
+    if(G&&previous.skillState)G.skills=previous.skillState;
+    if(G&&previous.unlockedSkills)G.unlockedSkills=previous.unlockedSkills;
+    if(G&&previous.skillSlots)G.skillSlots=previous.skillSlots;
+    throw error;
+  }
+}
 function studioValidateCraftingRecipe(need,count,tier,output='',index=''){
   if(!Number.isInteger(count)||count<1||count>99||
      !Number.isInteger(tier)||tier<0||tier>=TECH_LEVELS.length)
@@ -1067,6 +1131,16 @@ function studioBlueprintSummary(){
       edit.textContent='编辑内容';
       edit.addEventListener('click',()=>studioBeginEdit(entry.id,entry.kind==='方块'?'block':'item'));
       row.append(document.createTextNode(' '),edit);
+    }
+    if(entry.active){
+      const remove=document.createElement('button');remove.type='button';remove.className='studio-button';
+      remove.textContent='删除';remove.addEventListener('click',()=>{
+        const confirmation=localizeGameText('确定删除 {name} 吗？此操作无法撤销。').replace('{name}',entry.name);
+        if(!window.confirm(confirmation))return;
+        try{studioDeleteDefinition(entry);renderGameStudio();studioSetStatus(entry.kind+'已删除。');}
+        catch(error){studioSetStatus(error.message,true);}
+      });
+      row.append(document.createTextNode(' '),remove);
     }
     list.append(row);
   }
