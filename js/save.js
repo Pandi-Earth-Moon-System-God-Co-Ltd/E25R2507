@@ -128,6 +128,16 @@ function validateSaveShape(s){
     !Number.isFinite(animal.love)||animal.love<0||
     !Number.isFinite(animal.breedCooldown)||animal.breedCooldown<0)))
     throw new Error('动物数据无效');
+  if(s.pets!==undefined&&(!Array.isArray(s.pets)||s.pets.length>3||s.pets.some(pet=>
+    !isRecord(pet)||!validCoordinate(pet.x,pet.y)||!['chicken','sheep','boar'].includes(pet.type)||
+    pet.tamed!==true||!['follow','stay'].includes(pet.mode)||
+    !Number.isFinite(pet.age)||pet.age<0||pet.age>1||
+    !Number.isFinite(pet.hp)||pet.hp<=0||
+    !Number.isFinite(pet.love)||pet.love<0||
+    !Number.isFinite(pet.breedCooldown)||pet.breedCooldown<0||
+    (pet.attackCooldown!==undefined&&(!Number.isFinite(pet.attackCooldown)||pet.attackCooldown<0||pet.attackCooldown>2))||
+    (pet.layer!==undefined&&!['surface','cave'].includes(pet.layer)))))
+    throw new Error('宠物数据无效');
   if(s.G.worldLayer!==undefined&&!['surface','cave'].includes(s.G.worldLayer))
     throw new Error('世界层级数据无效');
   if(s.G.mapSnapshot!==undefined&&s.G.mapSnapshot!==null){
@@ -166,7 +176,7 @@ function migratePlayerAppearance(s){
 }
 function prepareSaveData(rawState){
   const s = JSON.parse(JSON.stringify(rawState));
-  if (!Number.isInteger(s.version) || ![2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20].includes(s.version)) throw new Error('不支持的存档版本');
+  if (!Number.isInteger(s.version) || ![2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21].includes(s.version)) throw new Error('不支持的存档版本');
   if(s.version>=9&&(!Array.isArray(s.belts)||!Array.isArray(s.ruins)||
      !Array.isArray(s.machines)||s.machines.some(machine=>!isRecord(machine)||!Number.isFinite(machine.power)))){
     throw new Error('存档缺少能源、输送带或遗迹状态');
@@ -186,6 +196,12 @@ function prepareSaveData(rawState){
   if(!Number.isFinite(s.player.maxThirst))s.player.maxThirst=100;
   if(!Number.isFinite(s.player.bodyTemp))s.player.bodyTemp=36.5;
   if(!Array.isArray(s.animals))s.animals=[];
+  if(!Array.isArray(s.pets))s.pets=[];
+  for(const pet of s.pets){
+    if(!['follow','stay'].includes(pet.mode))pet.mode='follow';
+    if(!Number.isFinite(pet.attackCooldown))pet.attackCooldown=0;
+    if(!['surface','cave'].includes(pet.layer))pet.layer=s.G.worldLayer||'surface';
+  }
   if(s.version<17){
     for(const id of ['carrotSeed','wheatSeed']){
       s.inv[id]=Math.max(2,s.inv[id]||0);
@@ -252,7 +268,7 @@ function prepareSaveData(rawState){
     }
     s.G.chunkStates=chunkStates;
   }else s.G.chunkStates={};
-  s.version = 20;
+  s.version = 21;
   validateSaveShape(s);
   return s;
 }
@@ -287,8 +303,8 @@ function saveGame(manual = false, slot = 0){
       if (manual) showToast('该存档无法读取，原记录已保留；确认重开后才能覆盖', '#ff9090');
       return false;
     }
-    const state = prepareSaveData({version:20, savedAt:Date.now(), player, G, inv, inventoryOrder,
-      hotbar, selectedHotbar, trees, rocks, bushes, pickups, enemies,animals,
+    const state = prepareSaveData({version:21, savedAt:Date.now(), player, G, inv, inventoryOrder,
+      hotbar, selectedHotbar, trees, rocks, bushes, pickups, enemies,animals,pets,
       torches, placedBlocks, machines, belts, ruins, enemyShots, spawnTimer, chests, farmPlots, waterSources});
     const serialized = JSON.stringify(state);
     localStorage.setItem(key, serialized);
@@ -316,7 +332,7 @@ function loadGame(slot = 0){
     player = s.player; G = s.G; inv = s.inv;
     inventoryOrder = s.inventoryOrder; hotbar = s.hotbar; selectedHotbar = s.selectedHotbar;
     trees = s.trees; rocks = s.rocks; bushes = s.bushes; pickups = s.pickups;
-    enemies = s.enemies; animals=s.animals; torches = s.torches; placedBlocks = s.placedBlocks; machines=s.machines;
+    enemies = s.enemies; animals=s.animals; pets=s.pets; torches = s.torches; placedBlocks = s.placedBlocks; machines=s.machines;
     belts=s.belts;ruins=s.ruins;farmPlots = s.farmPlots;
     enemyShots=s.enemyShots;chests=s.chests;
     waterSources=[];

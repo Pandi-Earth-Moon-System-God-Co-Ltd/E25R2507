@@ -351,7 +351,7 @@ function reset(mapDefinition=null){
   const worldSeed=mapDefinition?mapDefinition.seed:rndi(1,2147483646);
   generateWorld(mapDefinition,worldSeed);
   chests=mapDefinition?chests:[];
-  pickups = []; enemies = []; animals=[]; particles = []; texts = []; torches = []; placedBlocks = []; machines = []; belts = []; farmPlots = [];
+  pickups = []; enemies = []; animals=[]; pets=[]; particles = []; texts = []; torches = []; placedBlocks = []; machines = []; belts = []; farmPlots = [];
   enemyShots = []; combatFx = []; playerBullets = []; showMap = false;
 
   const rules=mapDefinition&&mapDefinition.rules||{};

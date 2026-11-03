@@ -141,6 +141,7 @@ function render(){
   for(const villager of villagers)if(inView(villager))drawables.push({y:villager.y,k:'villager',o:villager});
   for (const e of enemies) if (inView(e)) drawables.push({ y: e.y, k:'enemy',  o:e });
   for (const a of animals) if (inView(a)) drawables.push({ y:a.y,k:'animal',o:a });
+  for (const pet of pets) if (inView(pet)) drawables.push({ y:pet.y,k:'pet',o:pet });
   for (const c of chests) if (inView(c)) drawables.push({ y: c.y, k:'chest', o:c });
   drawables.push({ y: player.y, k:'player', o: player });
 
@@ -183,6 +184,7 @@ function render(){
         }
         break;
       case 'animal':drawAnimal(d.o,sx,sy);break;
+      case 'pet':drawAnimal(d.o,sx,sy);break;
       case 'player': drawPlayer(sx, sy); break;
     }
   }

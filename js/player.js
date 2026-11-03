@@ -22,16 +22,26 @@ function useSelectedItem(){
   const animal=animals.find(entry=>Math.hypot(entry.x-wx,entry.y-wy)<18&&
     Math.hypot(entry.x-player.x,entry.y-player.y)<TILE*3);
   if(animal){
+    const wantsTame=keys['ShiftLeft']||keys['ShiftRight'];
     if(animal.age<1){showToast('幼年动物还太小，先让它长大','#d8e0a0');return;}
     if(!['berry','wheat','carrot'].includes(id)||!(inv[id]>0)){
-      showToast('手持浆果或作物喂养动物','#d8e0a0');return;
+      showToast('手持浆果或作物喂养；按住 Shift 可驯服','#d8e0a0');return;
     }
+    if(wantsTame&&pets.length>=MAX_PETS){showToast('最多只能携带 '+MAX_PETS+' 只宠物','#ffb080');return;}
     takeItem(id,1);
+    if(wantsTame){tameAnimal(animal);return;}
     animal.love=45;
     animal.breedCooldown=Math.max(0,animal.breedCooldown||0);
     spawnParticles(animal.x,animal.y-8,'#ffc7df',7);
-    showToast('动物进入繁殖状态；附近同类也需要喂食','#ffc7df');
+    showToast('动物进入繁殖状态；按住 Shift 喂食可驯服','#ffc7df');
     if(window.PixelSurvivalAudio)PixelSurvivalAudio.play('feed',id);
+    return;
+  }
+  const pet=pets.find(entry=>Math.hypot(entry.x-wx,entry.y-wy)<18&&
+    Math.hypot(entry.x-player.x,entry.y-player.y)<TILE*3);
+  if(pet){
+    pet.mode=pet.mode==='stay'?'follow':'stay';
+    showToast(pet.mode==='stay'?'宠物原地警戒中':'宠物开始跟随','#d8e0a0');
     return;
   }
   const gate=placedBlocks.find(block=>block.type==='worldGate'&&

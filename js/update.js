@@ -185,6 +185,7 @@ function update(dt){
 
   updateFarming(dt);
   updateAnimals(dt);
+  updatePets(dt);
   updatePlayer(dt);
   updateEnemies(dt);
   updatePickups(dt);

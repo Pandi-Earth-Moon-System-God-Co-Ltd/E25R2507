@@ -197,6 +197,10 @@ function drawAnimal(animal,x,y){
     R(3,-20-pulse,3,3,'#ef8195');R(6,-18-pulse,2,2,'#ef8195');
     R(4,-17-pulse,4,3,'#ef8195');R(5,-14-pulse,2,2,'#ef8195');
   }
+  if(animal.tamed){
+    R(-4,-5,8,2,'#e5b84f');
+    R(2,-4,3,3,animal.mode==='stay'?'#d78355':'#f3db83');
+  }
   ctx.restore();
 }
 
