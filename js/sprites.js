@@ -353,16 +353,21 @@ function drawPlayer(x, y){
   R(x-4 + legOffsetX, y-7 + legOffsetY, 2, 3, outfit.trim);
   R(x+2 - legOffsetX, y-7 - legOffsetY, 2, 3, outfit.trim);
 
-  // Pack silhouette behind the shoulders
-  const packSide = p.facing >= 0 ? -1 : 1;
-  if(appearance.back===0){
-    R(x + packSide*7, y-17, 4, 8, '#59402a');
-    R(x + packSide*7, y-17, 3, 2, '#8a6840');
-    R(x + packSide*8, y-12, 2, 1, '#c49a58');
-  }else if(appearance.back===2){
-    R(x+packSide*7,y-17,4,9,'#694354');
-    R(x+packSide*8,y-15,2,6,'#a86668');
-  }
+  const backFacing=direction>=5;
+  const packSide=direction===0||direction===1||direction===7?-1:1;
+  const packX=backFacing?x-3:x+packSide*7;
+  const drawBackAccessory=()=>{
+    if(appearance.back===0){
+      R(packX,y-18,6,10,'#59402a');
+      R(packX,y-18,6,2,'#8a6840');
+      R(packX+1,y-14,4,1,'#c49a58');
+      R(packX+2,y-11,2,1,'#c49a58');
+    }else if(appearance.back===2){
+      R(packX-1,y-18,8,10,'#694354');
+      R(packX,y-15,6,6,'#a86668');
+    }
+  };
+  if(!backFacing)drawBackAccessory();
 
   // Coat and shoulders
   R(x-7, y-17, 14, 10, outfit.base);
@@ -384,6 +389,7 @@ function drawPlayer(x, y){
     R(x-1, y-11, 2, 2, '#d6b66e');
     R(x-5,y-16,2,1,'rgba(255,255,255,0.28)');
   }
+  if(backFacing)drawBackAccessory();
 
   // Free arm swings opposite the legs; the weapon arm is animated around its shoulder.
   const armSwing = moving ? stride * 1.5 : 0;
