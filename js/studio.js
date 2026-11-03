@@ -573,6 +573,13 @@ function studioDeleteDefinition(entry){
     studioRemoveCraftingRecipe(entry.recipeIndex);
     return;
   }
+  if(entry.blueprint){
+    const previous=modDefinitions.studioBlueprints;
+    modDefinitions.studioBlueprints=previous.filter(item=>!(item.kind===entry.kind&&item.id===entry.id));
+    try{persistModDefinitions();}
+    catch(error){modDefinitions.studioBlueprints=previous;throw error;}
+    return;
+  }
   const previous={
     items:{...modDefinitions.items},blocks:{...modDefinitions.blocks},
     machines:{...modDefinitions.machines},maps:modDefinitions.maps,
@@ -631,6 +638,16 @@ function studioDeleteDefinition(entry){
     if(G&&previous.skillSlots)G.skillSlots=previous.skillSlots;
     throw error;
   }
+}
+function studioConfirmDeleteDefinition(entry,onDeleted){
+  const confirmation=localizeGameText('确定删除 {name} 吗？此操作无法撤销。').replace('{name}',entry.name);
+  if(!window.confirm(confirmation))return;
+  try{
+    studioDeleteDefinition(entry);
+    if(onDeleted)onDeleted();
+    renderStudioPreview();
+    studioSetStatus(entry.kind+'已删除。');
+  }catch(error){studioSetStatus(error.message,true);}
 }
 function studioValidateCraftingRecipe(need,count,tier,output='',index=''){
   if(!Number.isInteger(count)||count<1||count>99||
@@ -1134,12 +1151,8 @@ function studioBlueprintSummary(){
     }
     if(entry.active){
       const remove=document.createElement('button');remove.type='button';remove.className='studio-button';
-      remove.textContent='删除';remove.addEventListener('click',()=>{
-        const confirmation=localizeGameText('确定删除 {name} 吗？此操作无法撤销。').replace('{name}',entry.name);
-        if(!window.confirm(confirmation))return;
-        try{studioDeleteDefinition(entry);renderGameStudio();studioSetStatus(entry.kind+'已删除。');}
-        catch(error){studioSetStatus(error.message,true);}
-      });
+      remove.textContent='删除';remove.addEventListener('click',()=>
+        studioConfirmDeleteDefinition(entry,()=>renderGameStudio()));
       row.append(document.createTextNode(' '),remove);
     }
     list.append(row);
@@ -1483,6 +1496,12 @@ function renderGameStudio(){
   const main=document.createElement('main');main.className='studio-main';
   const heading=document.createElement('h2');heading.textContent=module.name;main.append(heading);
   const desc=document.createElement('p');desc.className='studio-description';desc.textContent=module.description;main.append(desc);
+  if(module.id!=='mods'){
+    const manageContent=document.createElement('button');manageContent.type='button';manageContent.className='studio-button';
+    manageContent.textContent='管理 / 删除已保存内容';
+    manageContent.addEventListener('click',()=>{studioTab='mods';renderGameStudio();});
+    main.append(manageContent);
+  }
   if(module.id==='media'){
     renderStudioMediaSettings(main);
   }else if(module.id==='mods'){
@@ -1559,6 +1578,8 @@ function renderGameStudio(){
         for(const [key,value] of Object.entries(pendingAssets))studioStoreAsset(key,value);
         studioPendingAssets={};
         renderStudioPreview();
+        renderStudioModuleContentList(module,studioRoot.querySelector('.studio-preview'));
+        if(module.id==='world')renderStudioMapList(studioRoot.querySelector('.studio-map-list'));
       }
       catch(error){studioSetStatus(error.message,true);}
     });
@@ -1657,6 +1678,8 @@ function renderGameStudio(){
     const graph=document.createElement('div');graph.className='studio-logic-canvas';graph.setAttribute('aria-label','事件逻辑流程预览');
     preview.append(graph);
   }
+  if(['block','item','industry','skills','creature','logic'].includes(module.id))
+    renderStudioModuleContentList(module,preview);
   renderStudioIdCatalog(preview);
   if(module.mode==='blueprint'){
     const hint=document.createElement('p');hint.className='studio-note';hint.style.marginTop='12px';
@@ -1949,9 +1972,59 @@ function renderStudioMapList(list){
     edit.textContent='编辑';edit.addEventListener('click',()=>studioBeginMapEdit(map.id));
     const play=document.createElement('button');play.type='button';play.className='studio-button primary';
     play.textContent='试玩';play.addEventListener('click',()=>studioStartMap(map.id));
-    row.append(label,document.createTextNode(' '),edit,document.createTextNode(' '),play);
+    const remove=document.createElement('button');remove.type='button';remove.className='studio-button';
+    remove.textContent='删除';remove.addEventListener('click',()=>studioConfirmDeleteDefinition(
+      {kind:'地图',id:map.id,name:map.name},()=>renderStudioMapList(list)));
+    row.append(label,document.createTextNode(' '),edit,document.createTextNode(' '),play,
+      document.createTextNode(' '),remove);
     list.append(row);
   }
+}
+function renderStudioModuleContentList(module,parent){
+  if(!parent)return;
+  parent.querySelector('.studio-module-content')?.remove();
+  const machineBlocks=new Set(Object.values(modDefinitions.machines).map(machine=>machine.blockItem));
+  let entries=[];
+  if(module.id==='block'){
+    entries=Object.entries(modDefinitions.blocks)
+      .filter(([id])=>!machineBlocks.has(id))
+      .map(([id,item])=>({kind:'方块',id,name:item.name}));
+    entries.push(...modDefinitions.recipes.flatMap((recipe,index)=>
+      modDefinitions.blocks[recipe.out]&&!machineBlocks.has(recipe.out)
+        ?[{kind:'配方',id:'第'+(index+1)+'项',name:ITEMS[recipe.out]?.name||recipe.out,recipeIndex:index}]:[]));
+  }else if(module.id==='item'){
+    entries=Object.entries(modDefinitions.items)
+      .filter(([id,item])=>item.kind!=='placeable'&&!machineBlocks.has(id))
+      .map(([id,item])=>({kind:'物品',id,name:item.name}));
+    entries.push(...modDefinitions.recipes.flatMap((recipe,index)=>
+      modDefinitions.items[recipe.out]&&modDefinitions.items[recipe.out].kind!=='placeable'
+        ?[{kind:'配方',id:'第'+(index+1)+'项',name:ITEMS[recipe.out]?.name||recipe.out,recipeIndex:index}]:[]));
+  }else if(module.id==='industry'){
+    entries=Object.entries(modDefinitions.machines).map(([id,machine])=>({kind:'机器',id,name:machine.name}));
+  }else if(module.id==='skills'){
+    entries=modDefinitions.skillNodes.map(skill=>({kind:'技能',id:skill.id,name:skill.name}));
+  }else if(module.id==='creature'||module.id==='logic'){
+    entries=modDefinitions.studioBlueprints.filter(entry=>entry.kind===module.id)
+      .map(entry=>({kind:entry.kind,id:entry.id,name:entry.name,blueprint:true}));
+  }
+  const section=document.createElement('section');section.className='studio-module-content';
+  const heading=document.createElement('h3');heading.textContent='本模块已创建内容';section.append(heading);
+  if(!entries.length){
+    const empty=document.createElement('p');empty.className='studio-note';empty.textContent='本模块暂无已保存内容。';section.append(empty);
+  }else{
+    const list=document.createElement('ul');list.className='studio-list';
+    for(const entry of entries){
+      const row=document.createElement('li');
+      const label=document.createElement('span');label.textContent=entry.kind+' · '+entry.name+' · '+entry.id;
+      const remove=document.createElement('button');remove.type='button';remove.className='studio-button';
+      remove.textContent='删除';remove.addEventListener('click',()=>studioConfirmDeleteDefinition(entry,
+        ()=>renderStudioModuleContentList(module,parent)));
+      row.append(label,document.createTextNode(' '),remove);list.append(row);
+    }
+    section.append(list);
+  }
+  parent.append(section);
+  localizeStudioDom(section);
 }
 function renderStudioPreview(){
   const text=studioRoot.querySelector('.studio-preview-text');
