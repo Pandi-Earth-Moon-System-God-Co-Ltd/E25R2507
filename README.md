@@ -98,6 +98,7 @@
 | [Pixel_Survival_Plus_Mod_API_Example.js](./Pixel_Survival_Plus_Mod_API_Example.js) | Mod 开发示例脚本 |
 | [企画書_グループ.md](./企画書_グループ.md) | 团队企划书 |
 | [作業報告書_個人.md](./作業報告書_個人.md) | 个人工作报告 |
+| [CHANGELOG.md](./CHANGELOG.md) | 项目更新日志 |
 
 ### 5.1 JS 模块职责概览
 
