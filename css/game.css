@@ -1,0 +1,131 @@
+  *{margin:0;padding:0;box-sizing:border-box;}
+
+  html,body{
+    width:100%;height:100dvh;min-height:100dvh;
+    background:
+      radial-gradient(ellipse at 50% 42%, #536b51 0%, #29392e 62%, #111a18 100%);
+    display:flex;align-items:center;justify-content:center;
+    overflow:hidden;
+    font-family:"Microsoft YaHei UI","Microsoft YaHei","Noto Sans SC",sans-serif;
+  }
+
+  canvas{
+    display:block;
+    width:min(100vw,177.78vh);
+    height:min(100vh,56.25vw);
+    max-width:100vw;max-height:100vh;
+    image-rendering:pixelated;
+    image-rendering:crisp-edges;
+    background:#243827;
+    border-radius:3px;
+    outline:2px solid #96724b;
+    box-shadow:
+      0 0 0 1px #34291e,
+      0 0 0 5px #705537,
+      0 0 0 6px #b38b58,
+      0 12px 40px rgba(0,0,0,.62),
+      inset 0 0 0 1px rgba(255,255,255,.05);
+    cursor:crosshair;
+    touch-action:none;
+  }
+
+  #game-studio[aria-hidden="false"]{
+    position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;
+    padding:20px;background:rgba(15,18,16,.82);
+    font-family:"Microsoft YaHei UI","Microsoft YaHei","Noto Sans SC",sans-serif;
+    color:#3c2b1a;
+  }
+  .studio-window{
+    display:flex;flex-direction:column;width:min(1200px,96vw);height:min(900px,96dvh);
+    max-width:100vw;max-height:100dvh;
+    border:5px solid #6b4523;outline:2px solid #d9b37a;background:#f3e5c2;
+    box-shadow:0 12px 40px rgba(0,0,0,.5);overflow:hidden;
+  }
+  .studio-header{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;
+    color:#f3e5c2;background:#456b43;border-bottom:3px solid #9a683c}
+  .studio-header h1{font-size:20px}.studio-header p{margin-top:5px;font-size:12px;color:#d9e7c7}
+  .studio-close,.studio-button,.studio-tab{font:inherit;cursor:pointer;border:2px solid #704b2b;
+    background:#e2c48e;color:#3c2b1a;padding:8px 12px;box-shadow:inset 0 -3px rgba(80,48,20,.16)}
+  .studio-close:hover,.studio-button:hover,.studio-tab:hover{filter:brightness(1.08)}
+  .studio-tabs{display:flex;gap:6px;overflow-x:auto;padding:10px 12px;background:#d9c08a}
+  .studio-tab{white-space:nowrap;padding:7px 10px}.studio-tab[aria-selected="true"]{background:#75a25c;color:white}
+  .studio-subtabs{display:flex;gap:6px;overflow-x:auto;padding:7px 12px;background:#cdb47c}
+  .studio-subtab{font:inherit;white-space:nowrap;cursor:pointer;border:1px solid #704b2b;
+    background:#f3e5c2;color:#3c2b1a;padding:5px 10px}
+  .studio-subtab[aria-selected="true"]{background:#456b43;color:white}
+  .studio-content{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:18px;padding:18px;overflow:auto;flex:1}
+  .studio-main h2{font-size:18px;margin-bottom:8px}.studio-description{font-size:13px;color:#746044;margin-bottom:14px}
+  .studio-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .studio-field{display:flex;flex-direction:column;gap:5px;font-size:13px}
+  .studio-field input,.studio-field select,.studio-field textarea{width:100%;padding:9px;border:2px solid #a17b4c;
+    background:#fff8df;color:#302416;font:14px "Microsoft YaHei UI","Microsoft YaHei","Noto Sans SC",sans-serif;border-radius:0}
+  .studio-field textarea{min-height:80px;resize:vertical}
+  .studio-span{grid-column:1/-1}
+  .studio-preview{padding:14px;background:#e6d4a9;border:2px solid #b08a54}
+  .studio-preview h3{margin-bottom:10px}.studio-swatch{width:62px;height:62px;border:4px solid #6b4523;
+    box-shadow:inset 0 -12px rgba(0,0,0,.22);image-rendering:pixelated;margin-bottom:12px}
+  .studio-texture-preview{display:block;width:96px;height:96px;object-fit:contain;
+    image-rendering:pixelated;border:2px solid #6b4523;margin:10px 0}
+  .studio-player-sprite-preview{display:block;width:64px;height:96px;object-fit:contain;
+    image-rendering:pixelated;background:#33423b;border:2px solid #6b4523;margin:10px 0}
+  .studio-preview p,.studio-note{font-size:12px;line-height:1.55;color:#69583e}
+  .studio-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+  .studio-button.primary{background:#65964d;color:#fff}.studio-button.blue{background:#54869a;color:#fff}
+  .studio-status{min-height:24px;padding:8px 18px;background:#e6d4a9;border-top:1px solid #b08a54;font-size:13px}
+  .studio-list{font-size:12px;line-height:1.7;overflow-wrap:anywhere;max-height:300px;overflow:auto}
+  .studio-list li{margin-left:18px}
+  .studio-world-grid{display:grid;grid-template-columns:repeat(8,20px);gap:2px;margin-top:8px;
+    padding:5px;background:#82623c;width:max-content;border:2px solid #6b4523}
+  .studio-world-tile{width:20px;height:20px;padding:0;border:1px solid rgba(30,40,25,.35);cursor:pointer}
+  .studio-map-editor{display:grid;gap:10px;margin-top:16px}
+  .studio-map-toolbar{display:grid;gap:10px}
+  .studio-map-tool-group{display:grid;gap:5px}
+  .studio-map-tool-group strong{font-size:12px}
+  .studio-map-tools{display:flex;flex-wrap:wrap;gap:5px}
+  .studio-map-tools .studio-button{padding:5px 7px;font-size:11px}
+  .studio-map-tools .studio-button.active{background:#75a25c;color:#fff;outline:2px solid #456b43}
+  .studio-map-canvas{display:block;width:min(100%,560px);height:auto;aspect-ratio:1;
+    border:3px solid #6b4523;background:#e2c48e;image-rendering:pixelated;touch-action:none;cursor:crosshair}
+  .studio-map-preview{display:block;width:min(100%,224px);height:auto;aspect-ratio:1;
+    margin:10px 0;border:3px solid #6b4523;image-rendering:pixelated}
+  .studio-map-list{max-height:220px}
+  .studio-map-list li{margin:8px 0 8px 18px}
+  .studio-logic-canvas{display:grid;gap:8px;margin-top:14px;padding:12px;background:#dce7cf;border:2px dashed #799165}
+  .studio-logic-node{display:grid;gap:5px;padding:9px;background:#f8edcd;border:2px solid #82623c;font-size:12px}
+  .studio-logic-node strong{color:#456b43}.studio-logic-node span{overflow-wrap:anywhere}
+  .studio-media-toggle{display:grid;grid-template-columns:20px minmax(0,1fr);align-items:center;gap:6px;
+    padding:12px;background:#fff8df;border:2px solid #a17b4c}
+  .studio-media-toggle input{width:18px;height:18px;margin:0;accent-color:#5c9446}
+  .studio-media-toggle small{grid-column:2;color:#746044;line-height:1.45}
+  .studio-media-settings input[type="range"]{accent-color:#5c9446}
+  .studio-machine-recipes{display:grid;gap:8px;margin-top:8px}
+  .studio-machine-recipe-list{display:grid;gap:10px}
+  .studio-machine-recipe{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;
+    padding:10px;background:#e6d4a9;border:1px solid #b08a54}
+  .studio-machine-recipe>.studio-button{grid-column:1/-1}
+  .studio-ingredient-group{display:grid;gap:6px;min-width:0;padding:9px;background:#f4e8c7;border:1px solid #b08a54}
+  .studio-ingredient-group>strong{font-size:12px}
+  .studio-recipe-ingredients{display:grid;gap:5px}
+  .studio-item-count-row{display:grid;grid-template-columns:minmax(0,1fr) 64px 34px;gap:5px;align-items:center}
+  .studio-item-count-row select,.studio-item-count-row input{min-width:0;padding:6px}
+  .studio-item-count-row .studio-button{grid-column:auto;padding:5px}
+  .studio-id-catalog{margin-top:14px;padding:9px;background:#f4e8c7;border:1px solid #b08a54;font-size:12px}
+  .studio-id-catalog summary{cursor:pointer;font-weight:bold}
+  .studio-id-catalog strong{display:block;margin-top:8px}
+  .studio-id-list{max-height:160px;margin:3px 0 8px;padding-left:17px;overflow:auto;overflow-wrap:anywhere;line-height:1.55}
+  .studio-content-assets{padding-top:10px;border-top:2px solid #b08a54}
+  .studio-content-asset,.studio-action-asset{padding:10px;background:#f4e8c7;border:1px solid #b08a54}
+  .studio-content-asset-preview img{display:block;width:96px;height:96px;object-fit:contain;image-rendering:pixelated;
+    background:#dce7cf;border:1px solid #82623c}
+  .studio-asset-actions{display:flex;gap:6px;flex-wrap:wrap}
+  .studio-machine-ui-preview{display:grid;gap:8px;margin-top:12px;padding:12px;
+    background:#f3e5c2;border:3px solid #65964d;font-size:12px}
+  .studio-machine-ui-preview strong{padding:7px;background:#65964d;color:#fff}
+  .studio-machine-ui-preview p{padding:6px;border:1px solid currentColor}
+  @media(max-width:700px){
+    #game-studio[aria-hidden="false"]{padding:0}.studio-window{width:100%;height:100dvh;border-width:3px}
+    .studio-content{grid-template-columns:1fr;padding:12px}.studio-preview{order:-1}
+    .studio-fields{grid-template-columns:1fr}.studio-span{grid-column:auto}
+    .studio-machine-recipe{grid-template-columns:1fr}
+    .studio-ingredient-group,.studio-content-assets,.studio-crafting-recipe{grid-column:auto}
+  }
