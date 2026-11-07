@@ -5,14 +5,15 @@
    ══════════════════════════════════════════════════════════ */
 function drawCrosshair(){
   if (!mouse.active || panel) return;
-  const x = mouse.x, y = mouse.y;
-  const c = 'rgba(255,244,210,0.85)';
-  R(x-6, y, 3, 1, c);
-  R(x+4, y, 3, 1, c);
-  R(x, y-6, 1, 3, c);
-  R(x, y+4, 1, 3, c);
-  R(x-1, y-1, 3, 3, 'rgba(229,182,72,0.9)');
-  R(x, y, 1, 1, '#fff6d8');
+  const firstPerson = !!(window.Pixel3D && typeof Pixel3D.firstPerson === 'function' && Pixel3D.firstPerson());
+  const x = firstPerson ? W / 2 : mouse.x;
+  const y = firstPerson ? H / 2 : mouse.y;
+  const c = 'rgba(255,255,255,0.85)';
+  R(x-7, y, 5, 1, c);
+  R(x+3, y, 5, 1, c);
+  R(x, y-7, 1, 5, c);
+  R(x, y+3, 1, 5, c);
+  R(x, y, 1, 1, 'rgba(255,255,255,0.9)');
 }
 /* ══════════════════════════════════════════════════════════
    HUD：状态条
@@ -23,60 +24,78 @@ function drawBar(x, y, w, h, ratio, cDark, cLight, cTop){
 
 function drawStatusBars(){
   const p = player;
-  uiPanel(4, 4, 108, 57, {});
+  // MC 风格：半透明深色条 + 白色描边
+  R(4, 4, 108, 57, 'rgba(0,0,0,0.62)');
+  R(5, 5, 106, 55, 'rgba(24,24,24,0.72)');
+  R(5, 5, 106, 1, 'rgba(255,255,255,0.22)');
   const bx = 16, bw = 56;
   iconHeart(6, 6);
-  uiBar(bx, 7, bw, 8, p.hp/p.maxHp, { dark:PAL.hpDark, light:PAL.hpLight, top:'#ffb0a0' });
+  uiBar(bx, 6, bw, 9, p.hp/p.maxHp, { dark:PAL.hpDark, light:PAL.hpLight, top:'#ffb0a0' });
   iconFood(6, 17);
-  uiBar(bx, 18, bw, 8, p.hunger/p.maxHunger, { dark:PAL.hungerDark, light:PAL.hungerLight, top:'#ffd060' });
+  uiBar(bx, 17, bw, 9, p.hunger/p.maxHunger, { dark:PAL.hungerDark, light:PAL.hungerLight, top:'#ffd060' });
   R(8,29,2,2,'#83c7dc'); R(6,31,6,6,'#83c7dc'); R(8,32,2,4,'#d7f4ff');
-  uiBar(bx, 29, bw, 7, p.thirst/p.maxThirst, { dark:'#315b70', light:'#57aecb', top:'#c7f5ff' });
-  iconBolt(6, 38);
-  uiBar(bx, 39, bw, 7, p.stamina/p.maxStamina, { dark:PAL.staDark, light:PAL.staLight, top:'#b8ecff' });
-  R(7,49,2,7,'#c7dad2'); R(8,47,1,2,'#c7dad2'); R(9,49,2,2,'#ea8170');
-  uiBar(bx, 49, bw, 6, clamp((p.bodyTemp-30)/12,0,1),
+  uiBar(bx, 28, bw, 8, p.thirst/p.maxThirst, { dark:'#315b70', light:'#57aecb', top:'#c7f5ff' });
+  // 闪电（体力）
+  R(9, 38, 2, 3, '#ffe066');
+  R(7, 40, 4, 2, '#ffe066');
+  R(7, 42, 2, 2, '#ffd23f');
+  R(9, 44, 1, 1, '#ffd23f');
+  uiBar(bx, 38, bw, 8, p.stamina/p.maxStamina, { dark:PAL.staDark, light:PAL.staLight, top:'#b8ecff' });
+  R(7, 48, 1, 6, '#c7dad2');   // 管身
+  R(10, 48, 1, 6, '#c7dad2');
+  R(8, 48, 2, 6, '#2a3330');   // 管内
+  R(8, 50, 2, 4, '#ea8170');   // 水银
+  R(6, 53, 6, 4, '#c7dad2');   // 球泡
+  R(7, 54, 4, 2, '#ea8170');   // 泡内水银
+  uiBar(bx, 48, bw, 7, clamp((p.bodyTemp-30)/12,0,1),
     {dark:'#49666d',light:p.bodyTemp<34?'#86b7d2':'#70b78e',top:'#d8efd1'});
 
   const hpTxt = Math.ceil(p.hp)+'/'+p.maxHp;
-  txt(hpTxt, 104, 8, { size:6, bold:true, color:'rgba(0,0,0,0.85)', align:'right' });
-  txt(hpTxt, 103, 7, { size:6, bold:true, color:'#ffd0d0', align:'right' });
+  txt(hpTxt, 104, 7, { size:6, bold:true, color:'#ffd0d0', align:'right' });
   const huTxt = Math.round(p.hunger)+'%';
-  txt(huTxt, 104, 19, { size:6, bold:true, color:'rgba(0,0,0,0.85)', align:'right' });
-  txt(huTxt, 103, 18, { size:6, bold:true, color:'#fff0bd', align:'right' });
+  txt(huTxt, 104, 18, { size:6, bold:true, color:'#fff0bd', align:'right' });
   const thTxt = Math.round(p.thirst)+'%';
-  txt(thTxt, 104, 30, { size:6, bold:true, color:'rgba(0,0,0,0.85)', align:'right' });
-  txt(thTxt, 103, 29, { size:6, bold:true, color:'#c8f5ff', align:'right' });
+  txt(thTxt, 104, 29, { size:6, bold:true, color:'#c8f5ff', align:'right' });
   const stTxt = Math.round(p.stamina)+'%';
-  txt(stTxt, 104, 40, { size:6, bold:true, color:'rgba(0,0,0,0.85)', align:'right' });
-  txt(stTxt, 103, 39, { size:6, bold:true, color:'#c8ffff', align:'right' });
+  txt(stTxt, 104, 39, { size:6, bold:true, color:'#c8ffff', align:'right' });
+  // 弓箭蓄力环：按住左键时在瞄准点出现
+  if (p && p.chargeStart && typeof mouse !== 'undefined'){
+    const weapon = ITEMS[p.weapon] || {};
+    const need = (weapon.chargeTime || 1.1) * 1000;
+    const ratio = Math.min(1, (performance.now() - p.chargeStart) / need);
+    const cx = mouse.x, cy = mouse.y, radius = 15;
+    ctx.save();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+    ctx.beginPath(); ctx.arc(cx, cy, radius, -Math.PI / 2, Math.PI * 1.5); ctx.stroke();
+    ctx.strokeStyle = ratio >= 1 ? '#ffe066' : '#9fe4ff';
+    ctx.beginPath(); ctx.arc(cx, cy, radius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ratio); ctx.stroke();
+    if (ratio >= 1){
+      ctx.fillStyle = '#ffe066';
+      ctx.fillRect(cx - 1, cy - 1, 3, 3);
+    }
+    ctx.restore();
+  }
   const tempTxt=p.bodyTemp.toFixed(1)+'°';
-  txt(tempTxt,104,49,{size:6,bold:true,color:'rgba(0,0,0,0.85)',align:'right'});
   txt(tempTxt,103,48,{size:6,bold:true,color:p.bodyTemp<34?'#a8d7f0':p.bodyTemp>39?'#ffc18a':'#d8efd1',align:'right'});
 }
 
 function drawProgressHud(){
   const x = 118, y = 7;
   const title = '科技 ' + (G.tech + 1) + ' · ' + TECH_LEVELS[G.tech].name;
-  R(x - 3, y - 1, 106, 20, 'rgba(12,20,19,0.76)');
+  R(x - 3, y - 1, 106, 20, 'rgba(0,0,0,0.72)');
+  R(x - 3, y - 1, 106, 1, 'rgba(255,255,255,0.2)');
   R(x - 3, y - 1, 2, 20, G.bloodMoon ? '#d85069' : '#9a8450');
-  ctx.font = 'bold 6px '+UI_FONT;
-  ctx.fillStyle = '#e5d8a8';
-  ctx.fillText(localizeGameText(title), x, y + 1);
-  ctx.fillStyle = G.bloodMoon ? '#ff8b9b' : '#c1d0bb';
+  txt(localizeGameText(title), x, y + 1, { size:6, bold:true, color:'#e5d8a8' });
   const eventText = G.bloodMoon ? '血月来袭！'
     : G.day % 7 === 0 ? '血月今夜降临' : '血月倒计时 ' + (7 - (G.day % 7)) + ' 天';
-  ctx.fillText(localizeGameText(eventText), x, y + 10);
+  txt(localizeGameText(eventText), x, y + 10, { size:6, bold:true, color: G.bloodMoon ? '#ff8b9b' : '#c1d0bb' });
   if (panel !== 'tech' && panel !== 'pause' && !G.gameOver){
     uiButtons.push({ x:x - 3, y:y - 1, w:106, h:20, fn:() => { panel = 'tech'; } });
   }
   if (G.bloodMoon){
-    const label = '血月';
-    ctx.font = 'bold 8px '+UI_FONT;
-    ctx.textAlign = 'center';
     R(W/2 - 25, 7, 50, 13, 'rgba(65,12,24,0.88)');
-    ctx.fillStyle = '#ff8792';
-    ctx.fillText(localizeGameText(label), W/2, 9);
-    ctx.textAlign = 'left';
+    txt('血月', W/2, 9, { size:8, bold:true, color:'#ff8792', align:'center' });
   }
 }
 
@@ -87,8 +106,6 @@ function drawEquipment(){
   const x = 7, y = 46;
   const wep = player.weapon;
   const arm = player.armorId;
-
-  ctx.font = 'bold 7px '+UI_FONT;
 
   // 武器槽
   R(x, y, 12, 12, 'rgba(0,0,0,0.55)');
@@ -101,15 +118,8 @@ function drawEquipment(){
   R(x+15, y, 12, 12, 'rgba(120,150,200,0.22)');
 
   // 名称
-  ctx.fillStyle = 'rgba(0,0,0,0.8)';
-  ctx.fillText(localizeGameText(wep ? ITEMS[wep].name : '徒手'), x+30, y+2);
-  ctx.fillStyle = wep ? '#ffe0a0' : '#9aa0b0';
-  ctx.fillText(localizeGameText(wep ? ITEMS[wep].name : '徒手'), x+29, y+1);
-
-  ctx.fillStyle = 'rgba(0,0,0,0.8)';
-  ctx.fillText(localizeGameText(arm ? ITEMS[arm].name : '无护甲'), x+30, y+9);
-  ctx.fillStyle = arm ? '#b0d0ff' : '#9aa0b0';
-  ctx.fillText(localizeGameText(arm ? ITEMS[arm].name : '无护甲'), x+29, y+8);
+  txt(wep ? ITEMS[wep].name : '徒手', x+29, y+1, { size:7, bold:true, color: wep ? '#ffe0a0' : '#9aa0b0' });
+  txt(arm ? ITEMS[arm].name : '无护甲', x+29, y+8, { size:7, bold:true, color: arm ? '#b0d0ff' : '#9aa0b0' });
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -118,7 +128,8 @@ function drawEquipment(){
 function drawMinimap(){
   const MW = 78, MH = 78;
   const mx = W - MW - 7, my = 7;
-  uiPanel(mx-3, my-3, MW+6, MH+6, {});
+  R(mx - 3, my - 3, MW + 6, MH + 6, 'rgba(0,0,0,0.72)');
+  R(mx - 2, my - 2, MW + 4, MH + 4, '#373737');
   const mapPoint=(x,y)=>{
     if(G.mapId)return {x:mx+x/WORLD_W*MW,y:my+y/WORLD_H*MH};
     const tileSize=MW/31;
@@ -153,10 +164,8 @@ function drawMinimap(){
   R(px-2, py-2, 5, 5, 'rgba(120,255,120,0.28)');
   R(px-1, py-1, 3, 3, '#60ff60');
   R(px, py, 1, 1, '#ffffff');
-  ctx.strokeStyle = 'rgba(90,60,30,0.6)';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(mx + 0.5, my + 0.5, MW - 1, MH - 1);
-  ctx.lineWidth = 1;
+  R(mx, my + MH - 1, MW, 1, 'rgba(0,0,0,0.45)');
+  R(mx + MW - 1, my, 1, MH, 'rgba(0,0,0,0.45)');
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -166,10 +175,10 @@ function drawDayNight(){
   const cx = W - 22, cy = 100;
   const r = 9;
 
-  R(cx - r - 1, cy - r - 1, r*2+2, r*2+2, 'rgba(4,6,14,0.85)');
+  R(cx - r - 1, cy - r - 1, r*2+2, r*2+2, 'rgba(0,0,0,0.78)');
 
   // 进度环
-  ctx.strokeStyle = 'rgba(90,110,150,0.5)';
+  ctx.strokeStyle = 'rgba(150,150,150,0.5)';
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.arc(cx, cy, r, 0, Math.PI * 2);
@@ -193,15 +202,15 @@ function drawDayNight(){
 }
 
 /* ══════════════════════════════════════════════════════════
-   HUD：快捷栏
+   HUD：快捷栏（Minecraft 风格）
    ══════════════════════════════════════════════════════════ */
-const SLOT = 24, SLOT_GAP = 2;
+const SLOT = 20, SLOT_GAP = 0;
 
 function hotbarLayout(){
   const n = HOTBAR_SIZE;
   const totalW = n * SLOT + (n - 1) * SLOT_GAP;
   const x0 = Math.round((W - totalW) / 2);
-  const y0 = panel === 'inventory' ? H - SLOT - 49 : H - SLOT - 7;
+  const y0 = H - SLOT - 6;
   return { x0, y0, totalW, n };
 }
 
@@ -209,9 +218,11 @@ function drawHotbar(){
   const { x0, y0, n } = hotbarLayout();
   hoverSlot = -1;
   const barW = n * SLOT + (n-1) * SLOT_GAP;
-  uiPanel(x0 - 6, y0 - 6, barW + 12, SLOT + 12, {});
-  R(x0 - 6, y0 - 3, barW + 12, 1, PAL.goldDark);
-  uiButtons.push({ x: x0 - 6, y: y0 - 6, w: barW + 12, h: SLOT + 12, fn: null });
+  // MC 快捷栏：深色半透明底 + 白色描边
+  R(x0 - 2, y0 - 2, barW + 4, SLOT + 4, 'rgba(0,0,0,0.62)');
+  R(x0 - 1, y0 - 1, barW + 2, SLOT + 2, 'rgba(26,26,26,0.62)');
+  R(x0 - 1, y0 - 1, barW + 2, 1, 'rgba(255,255,255,0.18)');
+  uiButtons.push({ x: x0 - 2, y: y0 - 2, w: barW + 4, h: SLOT + 4, fn: null });
 
   for (let i = 0; i < n; i++){
     const id = hotbar[i];
@@ -220,130 +231,138 @@ function drawHotbar(){
     const count = id ? inv[id] || 0 : 0;
     if (mouse.x >= sx && mouse.x <= sx + SLOT && mouse.y >= sy && mouse.y <= sy + SLOT) hoverSlot = i;
     const selected = selectedHotbar === i;
-    uiSlot(sx, sy, SLOT, { selected: selected, hover: hoverSlot === i });
-    if (id && count > 0) drawItemIcon(ctx, id, sx + 3, sy + 3, 18);
-    else if (id){ ctx.globalAlpha = 0.22; drawItemIcon(ctx, id, sx + 3, sy + 3, 18); ctx.globalAlpha = 1; }
-    txt(String(i + 1), sx + 3, sy + 2, { size:6, bold:true, color: selected ? '#fff1a8' : 'rgba(255,255,255,0.72)' });
+    R(sx + 1, sy + 1, SLOT - 2, SLOT - 2, 'rgba(0,0,0,0.16)');
+    R(sx + 1, sy + 1, SLOT - 2, 1, 'rgba(0,0,0,0.42)');
+    R(sx + 1, sy + 1, 1, SLOT - 2, 'rgba(0,0,0,0.42)');
+    R(sx + 1, sy + SLOT - 2, SLOT - 2, 1, 'rgba(255,255,255,0.16)');
+    R(sx + SLOT - 2, sy + 1, 1, SLOT - 2, 'rgba(255,255,255,0.16)');
+    if (id && count > 0) drawItemIcon(ctx, id, sx + 2, sy + 2, 16);
+    else if (id){ ctx.globalAlpha = 0.28; drawItemIcon(ctx, id, sx + 2, sy + 2, 16); ctx.globalAlpha = 1; }
     if (count > 0){
-      const t = count > 99 ? '99+' : String(count);
-      txt(t, sx + SLOT - 2, sy + SLOT - 9, { size:6, bold:true, color:'#ffffff', align:'right' });
+      countText(count > 64 ? 64 : count, sx + SLOT - 2, sy + SLOT - 2);
     }
-    uiButtons.push({
-      x: sx - 1, y: sy - 1, w: SLOT + 2, h: SLOT + 2,
-      fn: () => selectHotbar(i),
-      ...(panel === 'inventory' ? { dragSlot: i } : {})
-    });
+    if (selected){
+      R(sx, sy, SLOT, 1, '#ffffff');
+      R(sx, sy + SLOT - 1, SLOT, 1, '#ffffff');
+      R(sx, sy, 1, SLOT, '#ffffff');
+      R(sx + SLOT - 1, sy, 1, SLOT, '#ffffff');
+    }
+    uiButtons.push({ x: sx, y: sy, w: SLOT, h: SLOT, fn: () => selectHotbar(i) });
   }
 }
 
+/* ══════════════════════════════════════════════════════════
+   HUD：第一人称手持物品
+   ══════════════════════════════════════════════════════════ */
+function drawFirstPersonHand(){
+  const id = player.toolId || player.weapon || hotbar[selectedHotbar];
+  if (!id || !ITEMS[id]) return;
+  const swing = player.swing > 0 ? Math.sin((1 - player.swing / ATTACK_ANIM_DURATION) * Math.PI) : 0;
+  const x = W - 120 - swing * 18, y = H - 68 + swing * 14;
+  ctx.save();
+  ctx.translate(x + 18, y + 18);
+  ctx.rotate(-0.3 - swing * 0.5);
+  ctx.imageSmoothingEnabled = false;
+  drawItemIcon(ctx, id, -15, -15, 30);
+  ctx.restore();
+}
+
+/* ══════════════════════════════════════════════════════════
+   背包：Minecraft 原版物品栏 GUI
+   ══════════════════════════════════════════════════════════ */
+const INVENTORY_PANEL = { x:152, y:52, w:176, h:166 };
+
 function drawInventoryPanel(){
-  ctx.fillStyle = 'rgba(20,12,6,0.72)';
+  hoverCraftItem = null;
+  ctx.fillStyle = 'rgba(12,10,8,0.72)';
   ctx.fillRect(0, 0, W, H);
 
-  const pw = 420, ph = 220;
-  const px = (W - pw) / 2, py = (H - ph) / 2;
-  uiPanel(px - 3, py - 3, pw + 6, ph + 6, {});
-  uiPanel(px, py, pw, ph, { fill: PAL.paper, woodMid: PAL.wood });
+  const px = INVENTORY_PANEL.x, py = INVENTORY_PANEL.y, pw = INVENTORY_PANEL.w, ph = INVENTORY_PANEL.h;
+  drawMcContainer('inventory', px, py, pw, ph);
 
-  txt('物品栏与装备', px + 12, py + 9, { size:10, bold:true, color:'#426044' });
-  txt('E / ESC 关闭', px + pw - 12, py + 13, { size:7, bold:true, color:'#756449', align:'right' });
-  R(px + 8, py + 25, pw - 16, 1, PAL.creamShade);
-
-  txt('装备', px + 12, py + 35, { size:7, bold:true, color:PAL.inkSoft });
-  txt('物品', px + 80, py + 35, { size:7, bold:true, color:PAL.inkSoft });
-
-  const bagItems = inventoryOrder.filter((id, index) =>
-    inventoryOrder.indexOf(id) === index && (inv[id] || 0) > 0 && !hotbar.includes(id)
-  );
-  const cols = 9, cell = 22, gap = 2;
-  const gridX = px + 80;
-  const gridY = py + 42;
-  const gridRows = 4;
-
-  for (let i = 0; i < cols * gridRows; i++){
-    const col = i % cols, row = Math.floor(i / cols);
-    const sx = gridX + col * (cell + gap), sy = gridY + row * (cell + gap);
-    const id = bagItems[i];
-    uiSlot(sx, sy, cell, {});
-    if (id){
-      drawItemIcon(ctx, id, sx + 2, sy + 2, 18);
-      txt(String(inv[id]), sx + cell - 2, sy + cell - 7, { size:6, bold:true, color:'#ffffff', align:'right' });
-      uiButtons.push({ x:sx, y:sy, w:cell, h:cell, dragItem:id });
-    } else {
-      uiButtons.push({ x:sx, y:sy, w:cell, h:cell, dragBag:true });
-    }
-  }
-
+  // 四个防具槽
   EQUIPMENT_ARMOR_SLOTS.forEach((slot, index) => {
-    const column=index%2,row=Math.floor(index/2);
-    const sx=px+10+column*38,sy=py+46+row*36;
-    const id=player.equipment&&player.equipment[slot.id];
-    uiSlot(sx, sy, 25, {});
-    if (id){
-      drawItemIcon(ctx, id, sx + 3, sy + 3, 18);
+    const x = px + 8, y = py + 8 + index * 18;
+    const id = player.equipment && player.equipment[slot.id];
+    uiButtons.push({ x, y, w:16, h:16, slot:{ kind:'armor', slotId:slot.id } });
+    if (slotHover(x, y, 16)){
+      paintSlotHover(x, y, 16);
+      if (id) hoverCraftItem = { id, count:1 };
     }
-    txt(slot.label,sx+12,sy+27,{size:6,bold:true,color:id?PAL.ink:PAL.inkSoft,align:'center'});
-    uiButtons.push({x:sx,y:sy,w:25,h:25,dragEquipment:slot.id});
+    if (id) drawItemIcon(ctx, id, x, y, 16);
   });
 
-  const previewX = px + 32, previewY = py + 119;
-  uiPanel(previewX, previewY, 29, 58, { fill:'rgba(52,66,59,0.6)', woodMid:'#5c6a55' });
-  R(previewX + 10, previewY + 6, 9, 10, '#d6a77a');
-  R(previewX + 9, previewY + 5, 11, 3, '#70492e');
-  R(previewX + 7, previewY + 17, 15, 17, '#4d79a8');
-  R(previewX + 4, previewY + 18, 4, 14, '#d6a77a');
-  R(previewX + 21, previewY + 18, 4, 14, '#d6a77a');
-  R(previewX + 8, previewY + 34, 6, 17, '#34384b');
-  R(previewX + 15, previewY + 34, 6, 17, '#34384b');
-  R(previewX + 6, previewY + 50, 8, 3, '#242424');
-  R(previewX + 15, previewY + 50, 8, 3, '#242424');
+  drawInventoryPlayerPreview(px + 26, py + 8, 50, 64);
 
-  txt('快捷栏', px + 12, py + 181, { size:7, bold:true, color:'#e8dcc0' });
-  txt('1–9 选择', px + 12, py + 188, { size:6, bold:true, color:PAL.inkSoft });
+  // 2×2 合成
+  drawInventoryCraftGrid(px + 98, py + 18);
 
-  drawHotbar();
+  // 背包 3×9 + 快捷栏
+  const bag = drawBagSlots(px + 8, py + 84, 3, 9, 18);
+  drawHotbarRow(px + 8, py + 142, 18);
 
-  const craftX = px + 302, craftY = py + 37;
-  txt('制作', craftX, craftY, { size:7, bold:true, color:'#e8dcc0' });
-  const craftCell = 16, craftGap = 2;
-  for (let row = 0; row < 2; row++){
-    for (let col = 0; col < 2; col++){
-      uiSlot(craftX + col * (craftCell + craftGap), craftY + 9 + row * (craftCell + craftGap), craftCell, {});
-    }
+  // 分页按钮
+  if (bag.pages > 1){
+    const pagerX = px + pw - 58, pagerY = py + 6;
+    uiButton(pagerX, pagerY, 12, 9, '‹', { kind:'stone', size:7 });
+    uiButtons.push({ x:pagerX, y:pagerY, w:12, h:9, fn:() => { inventoryPage = Math.max(0, inventoryPage - 1); } });
+    uiButton(pagerX + 30, pagerY, 12, 9, '›', { kind:'stone', size:7 });
+    uiButtons.push({ x:pagerX + 30, y:pagerY, w:12, h:9, fn:() => { inventoryPage = Math.min(bag.pages - 1, inventoryPage + 1); } });
+    txt((inventoryPage + 1) + '/' + bag.pages, pagerX + 21, pagerY + 1,
+      { size:6, bold:true, color:'#404040', align:'center' });
   }
-  txt('→', craftX + 39, craftY + 30, { size:8, bold:true, color:PAL.inkSoft });
-  const recipe = RECIPES[selectedRecipe];
-  const outputX = craftX + 51, outputY = craftY + 13;
-  uiSlot(outputX, outputY, 24, {});
-  if (recipe) drawItemIcon(ctx, recipe.out, outputX + 3, outputY + 3, 18);
-  txt(recipe ? ITEMS[recipe.out].name : '', outputX + 12, outputY + 31, { size:6, bold:true, color:'#e8dcc0', align:'center' });
-  uiButtons.push({ x:outputX - 2, y:outputY - 2, w:28, h:36, fn:() => craftRecipe(selectedRecipe) });
-  R(craftX, py + 81, 108, 1, PAL.creamShade);
-  txt('点击产物快速制作', craftX, py + 90, { size:6, bold:true, color:PAL.inkSoft });
-  txt('C 配方 · T 科技', craftX, py + 100, { size:6, bold:true, color:PAL.inkSoft });
 
-  const trashX = px + pw - 39, trashY = py + 124;
-  uiPanel(trashX - 5, trashY - 5, 38, 38, { fill:'#e3d4ac', woodMid:PAL.wood });
-  R(trashX + 5, trashY + 4, 18, 20, '#a7ab91');
-  R(trashX + 3, trashY + 1, 22, 3, '#d0c28e');
-  R(trashX + 9, trashY - 2, 10, 3, '#d0c28e');
-  R(trashX + 9, trashY + 8, 2, 12, '#4d5a50');
-  R(trashX + 16, trashY + 8, 2, 12, '#4d5a50');
-  txt('垃圾桶', trashX + 14, trashY + 39, { size:6, bold:true, color:PAL.inkSoft, align:'center' });
-  uiButtons.push({ x:trashX - 5, y:trashY - 5, w:38, h:42, dragTrash:true });
+  // 垃圾桶（窗口右侧）
+  const trashX = px + pw + 10, trashY = py + ph - 28;
+  txt('丢弃', trashX + 9, trashY - 10, { size:6, bold:true, color:'#e7e7e7', align:'center' });
+  uiButtons.push({ x:trashX, y:trashY, w:18, h:18, slot:{ kind:'trash' } });
+  uiSlot(trashX, trashY, 18, {});
+  // 简易垃圾桶图标
+  R(trashX + 4, trashY + 5, 10, 2, '#6b6b6b');
+  R(trashX + 5, trashY + 8, 8, 7, '#6b6b6b');
+  R(trashX + 7, trashY + 10, 1, 4, '#3f3f3f');
+  R(trashX + 10, trashY + 10, 1, 4, '#3f3f3f');
+  if (slotHover(trashX, trashY, 18)) paintSlotHover(trashX, trashY, 18);
 
-  txt('拖动物品整理 · 防具放入对应槽 · 拖到垃圾桶丢弃', W/2, py + ph - 10, { size:6, bold:true, color:'#756449', align:'center' });
-  if(inventoryDragSource){
-    const id=inventoryDragSource.kind==='hotbar'
-      ?hotbar[inventoryDragSource.index]:inventoryDragSource.id;
-    if(id&&inv[id]>0){
-      ctx.save();
-      ctx.globalAlpha=0.82;
-      R(mouse.x-12,mouse.y-12,24,24,'rgba(12,18,16,0.82)');
-      drawItemIcon(ctx,id,mouse.x-10,mouse.y-10,20);
-      ctx.restore();
-    }
+  // 底部提示
+  R(px, py + ph + 4, pw, 11, 'rgba(0,0,0,0.62)');
+  txt('左键拿起整组 · 右键拿一半 · C 合成台 · T 科技', px + pw / 2, py + ph + 6,
+    { size:6, bold:true, color:'#e7e7e7', align:'center' });
+
+  // 手中的物品
+  drawHeldStack();
+}
+
+/* 背包里的角色预览（MC 原版会在这里显示玩家模型） */
+function drawInventoryPlayerPreview(x, y, w, h){
+  const livePlayer = player;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.clip();
+  try{
+    ctx.translate(x + w / 2, y + h - 4);
+    ctx.scale(1.45, 1.45);
+    player = { ...livePlayer, x:0, y:0, swing:0, walkPhase:0, invuln:0, attackAngle:0 };
+    drawPlayer(0, 0);
+  }catch(error){
+    /* 预览失败不影响背包使用 */
+  }finally{
+    player = livePlayer;
+    ctx.restore();
   }
+}
+
+/* ── 通用：鼠标上拿着的物品 ─────────────────── */
+function drawHeldStack(){
+  if (!craftHeld) return;
+  const x = Math.round(mouse.x - 8), y = Math.round(mouse.y - 8);
+  ctx.globalAlpha = 0.92;
+  drawItemIcon(ctx, craftHeld.id, x, y, 16);
+  if (craftHeld.count > 1){
+    countText(craftHeld.count, x + 15, y + 15);
+  }
+  ctx.globalAlpha = 1;
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -357,7 +376,9 @@ function drawToast(){
   ctx.textAlign = 'center';
   const tw = ctx.measureText(localizeGameText(toast.text)).width;
   const bw = tw + 18, bx = Math.round(W/2 - bw/2), by = 44;
-  uiPanel(bx, by, bw, 18, {});
+  R(bx, by, bw, 18, 'rgba(0,0,0,0.72)');
+  R(bx, by, bw, 1, 'rgba(255,255,255,0.22)');
+  ctx.globalAlpha = a;
   txt(toast.text, W/2, by + 3, { size:9, bold:true, color: toast.color, align:'center' });
   ctx.globalAlpha = 1;
   ctx.textAlign = 'left';
@@ -368,13 +389,16 @@ function drawToast(){
    ══════════════════════════════════════════════════════════ */
 function drawHints(){
   if (panel) return;
-  const hint = localizeGameText('WASD移动/Shift冲刺 · 左键攻击 · 右键使用 · E背包 · C制作 · F洞穴/进食 · J帮助 · M地图');
+  const fp = !!(window.Pixel3D && typeof Pixel3D.firstPerson === 'function' && Pixel3D.firstPerson());
+  const hint = fp
+    ? localizeGameText('WASD移动 · 鼠标转动视角 · 左键攻击 · 右键使用 · E背包 · F5第三人称 · ESC暂停')
+    : localizeGameText('WASD移动/Shift冲刺 · 左键攻击 · 右键使用 · E背包 · C合成 · F5第一人称 · M地图');
   ctx.font = 'bold 6px '+UI_FONT;
   ctx.textAlign = 'center';
   ctx.fillStyle = 'rgba(0,0,0,0.8)';
-  ctx.fillText(hint, W/2+1, H - 66);
-  ctx.fillStyle = 'rgba(230,235,245,0.9)';
-  ctx.fillText(hint, W/2, H - 67);
+  ctx.fillText(hint, W/2+1, H - 64);
+  ctx.fillStyle = 'rgba(235,235,235,0.9)';
+  ctx.fillText(hint, W/2, H - 65);
   ctx.textAlign = 'left';
 }
 
@@ -404,7 +428,7 @@ function drawWorldActionHint(){
   ctx.font = 'bold 6px '+UI_FONT;
   const width = Math.min(W-16,ctx.measureText(localizeGameText(nearby.text)).width+10);
   const x = clamp(sx-width/2,8,W-width-8);
-  R(x,sy,width,12,'rgba(12,18,16,0.88)');
-  R(x,sy,width,1,'rgba(229,216,168,0.55)');
+  R(x,sy,width,12,'rgba(0,0,0,0.82)');
+  R(x,sy,width,1,'rgba(255,255,255,0.25)');
   txt(nearby.text,x+width/2,sy+3,{size:6,bold:true,color:'#fff0bd',align:'center'});
 }

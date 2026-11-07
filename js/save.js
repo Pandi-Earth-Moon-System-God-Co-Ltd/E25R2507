@@ -1,13 +1,13 @@
 /* 本地存档、输入保护与新手任务 */
 function drawAchPanel(){
   const got=ACHS.filter(a => (G.ach||{})[a[0]]).length;
-  ctx.fillStyle='rgba(18,11,6,0.85)'; ctx.fillRect(0,0,W,H);
+  drawMcBackdrop(0.64);
   uiPanel(110, 12, 260, 246, { title:'成就 '+got+'/'+ACHS.length+'   G / Esc 关闭', accent:PAL.gold });
   ACHS.forEach((a, i)=>{
     const y=42+i*27, done=(G.ach||{})[a[0]];
     uiPanel(122, y, 236, 23, { fill: done?PAL.cream:PAL.paper, woodMid: done?PAL.leaf:PAL.wood });
     txt((done?'✔ ':'· ')+a[1], 128, y+4, { size:8, bold:true, color: done?'#3c6630':'#6b5b42' });
-    txt(a[2]+(done?'':'  (奖励30经验)'), 128, y+15, { size:6, bold:true, color:'#7a6a4e' });
+    txt(a[2]+(done?'':'  (奖励30经验)'), 128, y+13, { size:6, bold:true, color:'#555555' });
   });
 }
 function checkAchievements(){
@@ -50,6 +50,9 @@ function validateSaveShape(s){
       !s.G.tutorialDone.every(v => typeof v === 'boolean') ||
       !Number.isFinite(s.G.tutorialWood) || s.G.tutorialWood < 0 ||
       Object.entries(s.inv).some(([id,n]) => !ITEMS[id] || !Number.isInteger(n) || n < 0) ||
+      (s.bagSlots !== undefined && (!Array.isArray(s.bagSlots) || s.bagSlots.length !== BAG_SLOTS ||
+        s.bagSlots.some(id => id !== null && !ITEMS[id]) ||
+        new Set(s.bagSlots.filter(Boolean)).size !== s.bagSlots.filter(Boolean).length)) ||
       s.hotbar.some(id => id !== null && !ITEMS[id]) ||
       s.inventoryOrder.some(id => !ITEMS[id]) ||
       (s.player.equipment!==undefined&&(!isRecord(s.player.equipment)||
@@ -57,7 +60,7 @@ function validateSaveShape(s){
           const itemId=s.player.equipment[slot];
           return itemId!==null&&itemId!==undefined&&
             (!ITEMS[itemId]||ITEMS[itemId].kind!=='armor'||
-             (ITEMS[itemId].armorSlot||'chestplate')!==slot||!(s.inv[itemId]>0));
+             (ITEMS[itemId].armorSlot||'chestplate')!==slot);
         })))||
       arrays.some(k => s[k].some(o => !isRecord(o)||!validCoordinate(o.x,o.y)))) {
     throw new Error('存档结构或世界实体数据无效');
@@ -184,12 +187,28 @@ function prepareSaveData(rawState){
   if(s.version>=10&&s.machines.some(machine=>!Number.isInteger(machine.dir)||machine.dir<0||machine.dir>3)){
     throw new Error('存档缺少机器方向状态');
   }
+  // 修复旧存档 / 已删除内容留下的脏数据，避免整份存档被判无效
+  if (s.inv && typeof s.inv === 'object') for (const id in s.inv){ if (!ITEMS[id]) delete s.inv[id]; }
+  if (Array.isArray(s.inventoryOrder)) s.inventoryOrder = s.inventoryOrder.filter(id => ITEMS[id]);
+  if (Array.isArray(s.hotbar)) s.hotbar = s.hotbar.map(id => (id && ITEMS[id] ? id : null));
+  if (!Array.isArray(s.bagSlots) || s.bagSlots.length !== BAG_SLOTS) s.bagSlots = Array(BAG_SLOTS).fill(null);
+  else s.bagSlots = s.bagSlots.map(id => (id && ITEMS[id] ? id : null));
+  if (Array.isArray(s.bagSlots)){
+    const seenSlots = new Set();
+    s.bagSlots = s.bagSlots.map(id => { if (!id || seenSlots.has(id)) return null; seenSlots.add(id); return id; });
+  }
   validateSaveShape(s);
   migratePlayerAppearance(s);
   migrateGrowth(s);
   migrateCombat(s);
   migrateGuns(s);
+  // 清理已经不存在的物品（删掉的自定义内容 / 旧存档），避免整份存档被判无效
+  for (const id in s.inv){ if (!ITEMS[id]) delete s.inv[id]; }
+  if (Array.isArray(s.inventoryOrder)) s.inventoryOrder = s.inventoryOrder.filter(id => ITEMS[id]);
+  if (Array.isArray(s.hotbar)) s.hotbar = s.hotbar.map(id => (id && ITEMS[id] ? id : null));
+  if (Array.isArray(s.bagSlots)) s.bagSlots = s.bagSlots.map(id => (id && ITEMS[id] ? id : null));
   if (!Number.isFinite(s.G.farmTech)) s.G.farmTech = 0;
+  if (!Array.isArray(s.bagSlots) || s.bagSlots.length !== BAG_SLOTS) s.bagSlots = [];
   if (!Array.isArray(s.farmPlots)) s.farmPlots = [];
   if (!Array.isArray(s.chests)) s.chests = [];
   if(!Number.isFinite(s.player.thirst))s.player.thirst=100;
@@ -303,7 +322,25 @@ function saveGame(manual = false, slot = 0){
       if (manual) showToast('该存档无法读取，原记录已保留；确认重开后才能覆盖', '#ff9090');
       return false;
     }
-    const state = prepareSaveData({version:21, savedAt:Date.now(), player, G, inv, inventoryOrder,
+    if (typeof syncBagSlots === 'function') syncBagSlots();
+    // 读档时如果存档停在地下，先送回地表：避免卡在洞穴里出不来
+    if (G && G.inCave){
+      G.worldLayer = 'surface';
+      G.inCave = false;
+      const entry = (typeof caveEntrances !== 'undefined' && caveEntrances && caveEntrances[0]) || null;
+      if (player && typeof TILE === 'number'){
+        player.x = entry ? entry.x : MAP_W * TILE / 2;
+        player.y = entry ? entry.y + TILE * 2 : MAP_H * TILE / 2;
+        player.vx = 0; player.vy = 0;
+      }
+      if (typeof updateWorldChunks === 'function') updateWorldChunks();
+      if (window.Pixel3D && typeof Pixel3D.invalidate === 'function') Pixel3D.invalidate();
+      if (window.PixelSurvivalAudio) PixelSurvivalAudio.play('caveOut');
+      showToast('存档位于地下，已自动回到地表（按 F 可再次下洞）', '#a8e0ff');
+    }
+    const invSnapshot = typeof craftGridSnapshot === 'function' ? craftGridSnapshot({ ...inv }) : { ...inv };
+    const state = prepareSaveData({version:21, savedAt:Date.now(), player, G, inv:invSnapshot, inventoryOrder,
+      bagSlots: Array.isArray(bagSlots) ? bagSlots.slice() : Array(BAG_SLOTS).fill(null),
       hotbar, selectedHotbar, trees, rocks, bushes, pickups, enemies,animals,pets,
       torches, placedBlocks, machines, belts, ruins, enemyShots, spawnTimer, chests, farmPlots, waterSources});
     const serialized = JSON.stringify(state);
@@ -331,6 +368,25 @@ function loadGame(slot = 0){
     else generateWorld(null,s.G.worldSeed);
     player = s.player; G = s.G; inv = s.inv;
     inventoryOrder = s.inventoryOrder; hotbar = s.hotbar; selectedHotbar = s.selectedHotbar;
+    bagSlots = Array.isArray(s.bagSlots) && s.bagSlots.length === BAG_SLOTS
+      ? s.bagSlots.slice()
+      : Array(BAG_SLOTS).fill(null);
+    if (typeof syncBagSlots === 'function') syncBagSlots();
+    // 读档时如果存档停在地下，先送回地表：避免卡在洞穴里出不来
+    if (G && G.inCave){
+      G.worldLayer = 'surface';
+      G.inCave = false;
+      const entry = (typeof caveEntrances !== 'undefined' && caveEntrances && caveEntrances[0]) || null;
+      if (player && typeof TILE === 'number'){
+        player.x = entry ? entry.x : MAP_W * TILE / 2;
+        player.y = entry ? entry.y + TILE * 2 : MAP_H * TILE / 2;
+        player.vx = 0; player.vy = 0;
+      }
+      if (typeof updateWorldChunks === 'function') updateWorldChunks();
+      if (window.Pixel3D && typeof Pixel3D.invalidate === 'function') Pixel3D.invalidate();
+      if (window.PixelSurvivalAudio) PixelSurvivalAudio.play('caveOut');
+      showToast('存档位于地下，已自动回到地表（按 F 可再次下洞）', '#a8e0ff');
+    }
     trees = s.trees; rocks = s.rocks; bushes = s.bushes; pickups = s.pickups;
     enemies = s.enemies; animals=s.animals; pets=s.pets; torches = s.torches; placedBlocks = s.placedBlocks; machines=s.machines;
     belts=s.belts;ruins=s.ruins;farmPlots = s.farmPlots;
@@ -347,6 +403,7 @@ function loadGame(slot = 0){
       ?{x:clamp(player.x-W/2,0,WORLD_W-W),y:clamp(player.y-H/2,0,WORLD_H-H)}
       :{x:player.x-W/2,y:player.y-H/2};
     clearInput(); recalcEquipment(); panel = G.gameOver ? null : 'pause'; selectedMachine=null;
+    if(typeof resetCraftingState==='function')resetCraftingState();
     protectedSaveKeys.delete(key);
     showToast(slot>0 ? '已读取存档槽 '+slot : '已恢复进度 · Esc 继续 · K 保存 · P 暂停', '#a8e0ff');
     return true;
@@ -429,7 +486,8 @@ function requestRestart(){
 function suspendGame(){
   clearInput();
   if(panel==='title')return;
-  if (!G.gameOver && !panel) panel = 'pause';
+  // 刚点开始游戏的瞬间浏览器会失焦（申请指针锁定等），这 1 秒内不弹暂停
+  if (!G.gameOver && !panel && (G.totalTime || 0) > 1) panel = 'pause';
   saveGame();
 }
 window.addEventListener('blur', suspendGame);

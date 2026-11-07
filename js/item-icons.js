@@ -1,12 +1,49 @@
 'use strict';
 
 /* ══════════════════════════════════════════════════════════
-   物品图标（16x16 设计，可缩放）
+   物品图标
+   - 优先使用 2233 材质包里的《我的世界》物品贴图
+   - 自定义（Game Studio）贴图优先级最高
+   - 材质包 / 自定义贴图都没有时退回程序化 16x16 图标
    ══════════════════════════════════════════════════════════ */
 function drawItemIcon(c, id, x, y, size){
   const it = ITEMS[id];
   if (!it) return;
   if(typeof drawCustomTexture==='function'&&drawCustomTexture(c,id,x,y,size))return;
+  if(window.MCTextures){
+    // 方块类物品画成《我的世界》那种等距 3D 小方块
+    // 格雷科技机器图标（铁块机身 + 机器正面）
+    const gt = MCTextures.gtIcon ? MCTextures.gtIcon(id) : null;
+    if (gt && gt.complete && gt.naturalWidth){
+      const prevSmoothing=c.imageSmoothingEnabled;
+      c.imageSmoothingEnabled=false;
+      c.drawImage(gt,Math.round(x),Math.round(y),Math.round(size),Math.round(size));
+      c.imageSmoothingEnabled=prevSmoothing;
+      return;
+    }
+    const cube=MCTextures.blockIcon(id,size);
+    if(cube){
+      const prev=c.imageSmoothingEnabled;
+      c.imageSmoothingEnabled=true;   // 2 倍渲染后平滑缩小，边缘更干净
+      c.drawImage(cube,Math.round(x),Math.round(y),Math.round(size),Math.round(size));
+      c.imageSmoothingEnabled=prev;
+      return;
+    }
+    const img=MCTextures.itemIcon(id);
+    if(img){
+      const prev=c.imageSmoothingEnabled;
+      c.imageSmoothingEnabled=false;
+      c.drawImage(img,Math.round(x),Math.round(y),Math.round(size),Math.round(size));
+      c.imageSmoothingEnabled=prev;
+      return;
+    }
+  }
+  drawFallbackItemIcon(c, id, x, y, size);
+}
+
+function drawFallbackItemIcon(c, id, x, y, size){
+  const it = ITEMS[id];
+  if (!it) return;
   const k = size / 16;
   c.save();
   c.translate(x, y);
@@ -122,6 +159,30 @@ function drawItemIcon(c, id, x, y, size){
       f(3, 8, 2, 5, c1);
       f(6, 8, 7, 4, c2);
       f(4, 7, 8, 1, '#d8b080');
+      break;
+
+    case 'stick':
+      f(7, 2, 2, 12, c2);
+      f(8, 2, 2, 12, c1);
+      f(9, 4, 1, 9, '#d9b37a');
+      break;
+
+    case 'coal':
+      f(3, 5, 10, 8, c2);
+      f(4, 4, 8, 6, c1);
+      f(5, 5, 3, 2, '#6b6b70');
+      f(9, 8, 3, 3, '#1d1d20');
+      f(6, 9, 2, 2, '#141416');
+      break;
+
+    case 'seed':
+      f(4, 8, 3, 3, c2);
+      f(5, 7, 2, 2, c1);
+      f(8, 5, 3, 3, c1);
+      f(9, 6, 2, 2, '#f0e8b0');
+      f(10, 9, 3, 3, c2);
+      f(11, 10, 2, 2, '#e8dc9c');
+      f(3, 3, 2, 4, '#6a9a40');
       break;
   }
   c.restore();

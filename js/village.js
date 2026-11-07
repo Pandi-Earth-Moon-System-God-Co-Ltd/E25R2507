@@ -24,7 +24,7 @@ function generateVillage(){
     const x=G.mapId?clamp(cx+spot.dx,32,WORLD_W-32):cx+spot.dx;
     const y=G.mapId?clamp(cy+spot.dy,32,CAVE_LINE-32):cy+spot.dy;
     villageHouses.push({x,y,type:i});
-    villagers.push({id:'village-'+i,x:x+12,y:y+14,name:spot.name,job:spot.job});
+    villagers.push({id:'village-'+i,x:x+4,y:y+TILE*1.9,name:spot.name,job:spot.job});
   }
 }
 
@@ -80,28 +80,25 @@ function completeVillageTrade(trade){
 
 function drawTradePanel(){
   uiButtons=[];
-  ctx.fillStyle='rgba(12,18,16,0.86)';ctx.fillRect(0,0,W,H);
+  drawMcBackdrop(0.64);
   const name=selectedVillager?selectedVillager.name+' · '+selectedVillager.job:'村庄交易';
-  uiPanel(54,18,372,234,{title:name+'  ·  金币 '+(inv.coin||0),accent:PAL.gold});
-  txt('购买',70,39,{size:6,bold:true,color:'#4a673b'});
-  txt('出售换金币',254,39,{size:6,bold:true,color:'#80602f'});
+  uiPanel(54,18,372,200,{title:name+'  ·  金币 '+(inv.coin||0),accent:PAL.gold});
+  txt('购买 · 花金币换物品',70,40,{size:6,bold:true,color:'#555555'});
+  txt('出售 · 物品换金币',254,40,{size:6,bold:true,color:'#555555'});
   const buys=VILLAGE_TRADES.filter(trade=>trade.kind==='buy');
   const sells=VILLAGE_TRADES.filter(trade=>trade.kind==='sell');
-  buys.forEach((trade,index)=>{
-    const y=52+index*26,item=ITEMS[trade.id];
-    uiPanel(68,y,164,22,{fill:'#eee5c7',woodMid:PAL.wood});
-    txt(item.name+' ×'+trade.count+'  '+trade.price+' 金',74,y+7,{size:6,color:'#4b4030'});
-    uiButtons.push({x:195,y:y+4,w:32,h:14,label:'买',fn:()=>completeVillageTrade(trade)});
-  });
-  sells.forEach((trade,index)=>{
-    const y=52+index*26,item=ITEMS[trade.id];
-    uiPanel(248,y,164,22,{fill:'#eee5c7',woodMid:PAL.wood});
-    txt(item.name+' ×'+trade.count+'  +'+trade.price+' 金',254,y+7,{size:6,color:'#4b4030'});
-    uiButtons.push({x:375,y:y+4,w:32,h:14,label:'换',fn:()=>completeVillageTrade(trade)});
-  });
-  txt('右键村民交易 · Esc 关闭',W/2,234,{size:6,color:'#6b5b42',align:'center'});
-  for(const button of uiButtons){
-    uiPanel(button.x,button.y,button.w,button.h,{fill:'#c8b978',woodMid:'#725537'});
-    txt(button.label,button.x+button.w/2,button.y+4,{size:5,bold:true,color:'#493b2b',align:'center'});
-  }
+  const drawTradeRow=(trade,x,y,action,kind)=>{
+    const item=ITEMS[trade.id];
+    if(!item)return;
+    uiPanel(x,y,168,26,{fill:'#b9b9b9'});
+    drawItemIcon(ctx,trade.id,x+6,y+5,16);
+    txt(item.name+' ×'+trade.count,x+28,y+4,{size:6,bold:true,color:'#3f3f3f'});
+    txt((trade.kind==='buy'?'-':'+')+trade.price+' 金',x+28,y+14,{size:6,bold:true,
+      color:trade.kind==='buy'?'#8a3a2a':'#2f6b2f'});
+    uiButton(x+128,y+5,34,16,action,{kind,size:6});
+    uiButtons.push({x:x+128,y:y+5,w:34,h:16,fn:()=>completeVillageTrade(trade)});
+  };
+  buys.forEach((trade,index)=>drawTradeRow(trade,66,52+index*30,'买','green'));
+  sells.forEach((trade,index)=>drawTradeRow(trade,246,52+index*30,'换','gold'));
+  txt('右键村民交易 · Esc 关闭',W/2,232,{size:6,bold:true,color:'#e7e7e7',align:'center'});
 }

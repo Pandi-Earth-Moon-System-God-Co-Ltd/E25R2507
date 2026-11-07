@@ -3,12 +3,25 @@
 /* ══════════════════════════════════════════════════════════
    玩家行为
    ══════════════════════════════════════════════════════════ */
+/* 《我的世界》式交互：点方块/生物的任意部位都算命中，不用精准瞄准脚下 */
+function aimEntity(entity, wx, wy, radius, height){
+  if (!entity) return false;
+  const reach = Math.hypot(entity.x - player.x, entity.y - player.y);
+  if (reach > TILE * 5) return false;
+  const r = radius || TILE;
+  const h = height || 0;
+  for (let i = -3; i <= 3; i++){
+    // 从脚下到头顶向上取样，身形高的目标也能点中身体
+    if (Math.hypot(entity.x - wx, entity.y - (wy - i * h * 0.22)) <= r) return true;
+  }
+  return false;
+}
+
 function useSelectedItem(){
   const id = hotbar[selectedHotbar];
   const it = ITEMS[id];
   const {x:wx,y:wy}=screenToWorld(mouse.x,mouse.y);
-  const villager=villagers.find(entry=>Math.hypot(entry.x-wx,entry.y-wy)<18&&
-    Math.hypot(entry.x-player.x,entry.y-player.y)<TILE*4);
+  const villager=villagers.find(entry=>aimEntity(entry,wx,wy,TILE*1.1,TILE*2.2));
   if(villager){openVillageTrade(villager);return;}
   const water=findRiverWaterAt(wx,wy);
   if(water){
@@ -19,8 +32,7 @@ function useSelectedItem(){
     spawnParticles(water.x,water.y-3,'#83c7dc',5);
     return;
   }
-  const animal=animals.find(entry=>Math.hypot(entry.x-wx,entry.y-wy)<18&&
-    Math.hypot(entry.x-player.x,entry.y-player.y)<TILE*3);
+  const animal=animals.find(entry=>aimEntity(entry,wx,wy,TILE*1.0,TILE*1.4));
   if(animal){
     const wantsTame=keys['ShiftLeft']||keys['ShiftRight'];
     if(animal.age<1){showToast('幼年动物还太小，先让它长大','#d8e0a0');return;}
@@ -37,22 +49,23 @@ function useSelectedItem(){
     if(window.PixelSurvivalAudio)PixelSurvivalAudio.play('feed',id);
     return;
   }
-  const pet=pets.find(entry=>Math.hypot(entry.x-wx,entry.y-wy)<18&&
-    Math.hypot(entry.x-player.x,entry.y-player.y)<TILE*3);
+  const pet=pets.find(entry=>aimEntity(entry,wx,wy,TILE*1.0,TILE*1.2));
   if(pet){
     pet.mode=pet.mode==='stay'?'follow':'stay';
     showToast(pet.mode==='stay'?'宠物原地警戒中':'宠物开始跟随','#d8e0a0');
     return;
   }
-  const gate=placedBlocks.find(block=>block.type==='worldGate'&&
-    Math.hypot(block.x-wx,block.y-wy)<TILE&&Math.hypot(block.x-player.x,block.y-player.y)<TILE*4);
+  const gate=placedBlocks.find(block=>block.type==='worldGate'&&aimEntity(block,wx,wy,TILE*1.2,TILE*1.6));
   if(gate){activateWorldGate(gate);return;}
-  const machine = machines.find(m => Math.hypot(m.x-wx,m.y-wy) < TILE &&
-    Math.hypot(m.x-player.x,m.y-player.y) <= TILE*4);
-  if (machine){ panel='machine'; selectedMachine=machine; machinePanelTab='input'; machinePanelPage=0; clearInput(); return; }
-  const belt=belts.find(b=>Math.hypot(b.x-wx,b.y-wy)<TILE/2&&Math.hypot(b.x-player.x,b.y-player.y)<=TILE*4);
+  const caveMouth = caveEntrances.find(entry => aimEntity(entry, wx, wy, TILE*1.4, TILE*1.4));
+  if (caveMouth){ tryUseCaveEntrance(); return; }
+  const machine = machines.find(m => aimEntity(m,wx,wy,TILE*1.15,TILE*2));
+  if (machine){
+    if(window.PixelSurvivalAudio)PixelSurvivalAudio.play('machineOpen');
+    panel='machine'; selectedMachine=machine; machinePanelTab='input'; machinePanelPage=0; clearInput(); return; }
+  const belt=belts.find(b=>aimEntity(b,wx,wy,TILE*0.9,TILE*0.6));
   if(belt){belt.dir=(belt.dir+1)%4;showToast('输送带方向已调整','#d5e0b0');return;}
-  const ruin=ruins.find(r=>!r.opened&&Math.hypot(r.x-wx,r.y-wy)<TILE*1.5&&Math.hypot(r.x-player.x,r.y-player.y)<TILE*3);
+  const ruin=ruins.find(r=>!r.opened&&aimEntity(r,wx,wy,TILE*1.8,TILE*2));
   if(ruin){openRuin(ruin);return;}
   const tx=Math.floor(wx/FARM_TILE)*FARM_TILE+FARM_TILE/2, ty=Math.floor(wy/FARM_TILE)*FARM_TILE+FARM_TILE/2;
   const targetPlot=farmPlots.find(p=>p.x===tx&&p.y===ty);
@@ -61,6 +74,7 @@ function useSelectedItem(){
   if (it.kind === 'food') useFood(id);
   else if (it.kind === 'seed') farmAction(id);
   else if (id === 'torch') placeTorch();
+  else if (it.hoe) farmAction(id);
   else if (it.kind === 'placeable' && id !== 'torch') placeBlock(id);
 }
 
@@ -119,6 +133,7 @@ function placeTorch(){
 }
 
 function placeBlock(id){
+  if (window.PixelSurvivalAudio) PixelSurvivalAudio.play('build');
   if (!(inv[id] > 0)){
     showToast('没有可放置的方块', '#ff8080');
     return;
@@ -173,8 +188,22 @@ function farmAction(seedId){
   const x = Math.floor(wx / FARM_TILE) * FARM_TILE + FARM_TILE/2;
   const y = Math.floor(wy / FARM_TILE) * FARM_TILE + FARM_TILE/2;
   if (Math.hypot(x-player.x,y-player.y) > FARM_TILE*4){ showToast('耕地/播种距离太远', '#ffb080'); return; }
+  const heldId = id || null;
+  const heldItem = heldId ? ITEMS[heldId] : null;
   let plot = farmPlots.find(p=>p.x===x && p.y===y);
+  // 空耕地再点一次（手上没有种子）→ 铲除，避免放下去删不掉
+  if (plot && !plot.crop && (!id || !ITEMS[id] || !(inv[id] > 0))){
+    farmPlots.splice(farmPlots.indexOf(plot), 1);
+    spawnParticles(x, y, '#9a7545', 4);
+    showToast('已铲除耕地', '#d8c28a');
+    return;
+  }
   if (!plot){
+    // 必须手持锄头才能开垦，避免空手误触
+    if (!(heldItem && heldItem.hoe)){
+      showToast('需要锄头才能开垦土地（木板2 + 木棍3 制作）', '#ffc080');
+      return;
+    }
     if (placedBlocks.some(b=>b.x===x&&b.y===y) || machines.some(m=>m.x===x&&m.y===y) || belts.some(b=>b.x===x&&b.y===y) || trees.some(o=>Math.hypot(o.x-x,o.y-y)<o.r+3) || rocks.some(o=>Math.hypot(o.x-x,o.y-y)<o.r+3)) { showToast('这里无法耕作', '#ffb080'); return; }
     farmPlots.push({x,y,crop:null,growth:0,moisture:0.6});
     spawnParticles(x,y-2,'#9a7545',5); showToast('已开垦土地，再右键种子播种', '#d8c28a'); return;
@@ -374,6 +403,24 @@ function updateMachines(dt){
       for(const [id,count] of Object.entries(recipe.output))machine.output[id]=(machine.output[id]||0)+count;
       machine.activeRecipe=null;
       machine.progress=0;
+      // 相邻机器的自动化：把自己产出的物品推给前后紧贴的机器
+      if (typeof machines !== 'undefined'){
+        for (const dir of [[1,0],[0,1],[-1,0],[0,-1]]){
+          const neighbor = machines.find(candidate => candidate !== machine &&
+            candidate.x === machine.x + dir[0] * TILE && candidate.y === machine.y + dir[1] * TILE);
+          if (!neighbor) continue;
+          for (const [id, count] of Object.entries(machine.output)){
+            if (!machineAcceptsStoredItem(neighbor, id)) continue;
+            const have = machine.output[id] || 0;
+            if (have <= 0) continue;
+            const move = Math.min(have, count);
+            neighbor.input[id] = (neighbor.input[id] || 0) + move;
+            machine.output[id] = have - move;
+            if (machine.output[id] <= 0) delete machine.output[id];
+            showToast('自动送料：' + ((ITEMS[id]||{}).name || id) + ' ×' + move + ' → ' + ((MACHINE_TYPES[neighbor.type]||{}).name || '机器'), '#a8e0ff');
+          }
+        }
+      }
       if(window.PixelSurvivalModAPI)PixelSurvivalModAPI.emit('machineCrafted',{machine:machine.type,recipe:recipe.id,x:machine.x,y:machine.y,output:{...recipe.output}});
       if(window.PixelSurvivalAudio)PixelSurvivalAudio.play('machine',machine.type);
       showToast(recipe.name+' 完成', '#a8efaa');
@@ -396,6 +443,8 @@ function collectMachineOutput(machine,id){
   showToast('取出 '+ITEMS[id].name+' ×'+count,'#a8e0ff');
 }
 function machineStatus(machine,type){
+  if (typeof machineVoltageOk === 'function' && !machineVoltageOk(machine.type))
+    return '电压不足 · 需要' + voltageName(machineVoltage(machine.type));
   if(type.generator==='fuel')return machine.power>=type.capacity
     ? '储能已满 · 电网/附近设备可用'
     : machine.fuel>0?'发电中 · '+Math.floor(machine.power)+' / '+type.capacity+' 能量'
@@ -431,18 +480,91 @@ function machineStatus(machine,type){
   if(!machineCapacityAllows(machine.output,recipe.output))return '产物缓存已满';
   return '待机 · 即将开始';
 }
+/* 熔炉式机器界面：直接使用材质包里的《我的世界》熔炉窗口 */
+function drawFurnacePanel(machine,type){
+  uiButtons=[];
+  drawMcBackdrop(0.62);
+  const x=Math.round((W-176)/2), y=Math.round((H-166)/2);
+  drawMcContainer('furnace', x, y, 176, 166);
+  txt(type.name, x+59, y+6, { size:8, bold:true, color:'#3f3f3f' });
+  txt('ESC 关闭', x+168, y+7, { size:6, bold:false, color:'#5a5a5a', align:'right' });
+  const img = window.MCTextures && MCTextures.gui ? MCTextures.gui('furnace') : null;
+  const inputIds=Object.keys(machine.input).filter(id=>machine.input[id]>0);
+  const outputIds=Object.keys(machine.output).filter(id=>machine.output[id]>0);
+  const recipe=machineRecipeFor(machine);
+  const inputId=inputIds[0]||null, outputId=outputIds[0]||null;
+  const fuelId=type.fuelItem;
+  const fuelCount=inv[fuelId]||0;
+  // 三个槽位（贴图里已经画好了槽位底）
+  if(inputId)drawSlotItem(inputId,machine.input[inputId],x+56,y+17,16);
+  if(fuelCount>0)drawSlotItem(fuelId,fuelCount,x+56,y+53,16);
+  if(outputId)drawSlotItem(outputId,machine.output[outputId],x+116,y+31,16);
+  uiButtons.push({x:x+56,y:y+17,w:16,h:16,fn:()=>{
+    if(!craftHeld){
+      showToast(inputId?('点击手持的材料投入 · 当前 '+ITEMS[inputId].name+' '+machine.input[inputId]):'把材料拖到这个槽位', '#ffc080');
+      return;
+    }
+    const id=craftHeld.id;
+    if(!type.recipes.some(r=>r.input[id])){ showToast((ITEMS[id]||{}).name+' 不是这台机器的原料','#ffc080'); return; }
+    machine.input[id]=(machine.input[id]||0)+1;
+    craftHeld.count-=1;
+    if(craftHeld.count<=0)craftHeld=null;
+    recalcEquipment();
+  }});
+  uiButtons.push({x:x+56,y:y+53,w:16,h:16,fn:()=>{
+    if(craftHeld){
+      if(craftHeld.id!==fuelId){ showToast('这里只能放 '+(ITEMS[fuelId]||{}).name,'#ffc080'); return; }
+      machine.fuel=(machine.fuel||0)+1;
+      craftHeld.count-=1;
+      if(craftHeld.count<=0)craftHeld=null;
+      return;
+    }
+    transferMachineFuel(machine);
+  }});
+  uiButtons.push({x:x+116,y:y+31,w:16,h:16,fn:()=>{
+    for(const id of outputIds)collectMachineOutput(machine,id);
+    if(!outputIds.length)showToast('还没有产物','#ffc080');
+  }});
+  // 火焰（燃料 / 电量）与进度箭头
+  const cap=type.capacity||100;
+  const burn=Math.max(0,Math.min(1,(machine.fuel?Math.min(1,machine.fuel/8):0)+(machine.power||0)/cap));
+  if(img&&img.complete&&burn>0){
+    const h=Math.round(14*burn);
+    ctx.drawImage(img,176,14-h,14,h,x+56,y+36+14-h,14,h);
+  }
+  if(img&&img.complete&&recipe&&recipe.duration>0){
+    const p=Math.max(0,Math.min(1,(machine.progress||0)/recipe.duration));
+    const w=Math.round(24*p);
+    if(w>0)ctx.drawImage(img,176,14, w,17, x+79,y+34, w,17);
+  }
+  // 玩家背包与快捷栏
+  drawBagSlots(x+8,y+84,3,9,18);
+  for(let i=0;i<9;i++){
+    const sx=x+8+i*18, sy=y+142, id=hotbar[i];
+    if(id&&(inv[id]||0)>0)drawSlotItem(id,inv[id],sx,sy,16);
+    uiButtons.push({x:sx,y:sy,w:16,h:16,slot:{kind:'hotbar',index:i}});
+  }
+  const vOk=machineVoltageOk(machine.type), vName=voltageName(machineVoltage(machine.type));
+  txt('电压 '+vName+(vOk?' ✓':' · 需要'+vName+'电网')+'　'+machineStatus(machine,type)+'　'+Math.floor(machine.power||0)+' 能量',
+    W/2, y+170, { size:7, bold:true, color:vOk?'#9df0a8':'#ff9a80', align:'center' });
+  txt(type.recipes.length+' 种配方 · 把材料拖进左上槽位，燃料放左下，右下取产物',
+    W/2, y+181, { size:6, bold:true, color:'#c8c8c8', align:'center' });
+  drawHeldStack();
+}
+
 function drawMachinePanel(){
   const machine=selectedMachine, type=machine&&MACHINE_TYPES[machine.type];
   if(!machine||!type){panel=null;selectedMachine=null;return;}
+  if(!type.generator&&!type.harvester&&!type.itemRouter&&type.recipes.length){ drawFurnacePanel(machine,type); return; }
   const ui=type.ui||{};
   const paper=ui.background||PAL.paper,accent=ui.accent||PAL.wood,textColor=ui.text||'#5b4a32';
   uiButtons=[];
-  ctx.fillStyle='rgba(18,11,6,0.8)'; ctx.fillRect(0,0,W,H);
+  drawMcBackdrop(0.62);
   const x=88, y=42, w=304, h=186;
   uiPanel(x-3, y-3, w+6, h+6, {});
   uiPanel(x, y, w, h, { title:ui.title||type.name,fill:paper,wood:accent,woodMid:accent,
     accent,accentLight:accent,accentDark:accent });
-  txt('右键 / ESC 关闭', x+w-12, y+12, { size:7, bold:true, color:'#e8dcc0', align:'right' });
+  txt('右键 / ESC 关闭', x+w-12, y+12, { size:7, bold:true, color:'#404040', align:'right' });
   R(x+10, y+23, w-20, 1, PAL.creamShade);
   txt((ui.statusLabel||'状态')+'：'+machineStatus(machine,type)+' · '+Math.floor(machine.power||0)+' 能量', x+12, y+34, { size:7, bold:true, color:textColor });
   const inputIds=[...new Set([...type.recipes.flatMap(recipe=>Object.keys(recipe.input)),...Object.keys(machine.input)])];
@@ -479,7 +601,8 @@ function drawMachinePanel(){
     const itemName=(ITEMS[id]||{}).name||id;
     const amount=machinePanelTab==='output'?(machine.output[id]||0):(machine.input[id]||0);
     uiPanel(cellX,cellY,columnWidth,14,{fill:paper,woodMid:accent});
-    txt(itemName+' '+amount,cellX+4,cellY+4,{size:6,bold:true,color:textColor});
+    drawItemIcon(ctx,id,cellX+3,cellY+1,12);
+    txt(itemName+' '+amount,cellX+19,cellY+4,{size:6,bold:true,color:textColor});
     const buttonX=cellX+columnWidth-39;
     if(machinePanelTab==='output'){
       uiButton(buttonX,cellY+1,36,12,'取出',{kind:amount>0?'blue':'wood'});
@@ -547,12 +670,23 @@ function drawFarmPlot(p, sx, sy){
   }
 }
 
+function nearCraftingTable(){
+  return placedBlocks.some(block => block.type === 'craftingTable' &&
+    Math.hypot(block.x - player.x, block.y - player.y) < TILE * 2.8);
+}
+
 function craftRecipe(idx){
   const rec = RECIPES[idx];
   const it = ITEMS[rec.out];
 
   if (G.tech < rec.tier){
     showToast('需要 ' + TECH_LEVELS[rec.tier].name + ' · 按 T 查看科技', '#ffc080');
+    return;
+  }
+
+  if (rec.table && !nearCraftingTable()){
+    showToast('需要靠近工作台：先合成工作台（木板×4）并右键放置', '#ffb080');
+    shake = 2;
     return;
   }
 
@@ -640,7 +774,9 @@ function doAttack(){
     const d = Math.hypot(dx, dy);
     const angle = Math.atan2(dy, dx);
     const angleDiff = Math.atan2(Math.sin(angle - aimAngle), Math.cos(angle - aimAngle));
-    if (d < p.range + e.r + 5 && Math.abs(angleDiff) < 0.9){
+    // 命中判定按「身体」算：整个身形都在判定里，不是只打某个点
+    const bodyReach = (e.height || e.r * 2 || 14) * 0.55;
+    if (d < p.range + e.r + 5 + bodyReach && Math.abs(angleDiff) < 1.25){
       e.hp -= attackDamage;
       e.hitFlash = 0.16;
       const kx = e.x - p.x, ky = e.y - p.y;
@@ -651,12 +787,22 @@ function doAttack(){
       spawnText(e.x, e.y - 22, '-' + attackDamage, p.combo===3?'#ffb56a':'#ffdd55');
       hitAny = true;
       hitEnemy = true;
-      if (e.hp <= 0) killEnemy(e, i);
+      if (e.hp <= 0){
+        if (e.type === 'bloodKnight' && !e.deathBlast){
+          e.deathBlast = true;
+          if (Math.hypot(e.x - player.x, e.y - player.y) < 92) hurtPlayer(e.damage * 1.5);
+          for (let k = 0; k < 20; k++) spawnParticles(e.x + rnd(-26, 26), e.y - 9 + rnd(-26, 26), '#ff6b7a', 1);
+          showToast('血月骑士倒下 · 临死血爆！', '#ff8b8b');
+          if (window.PixelSurvivalAudio) PixelSurvivalAudio.play('hurt');
+        }
+        killEnemy(e, i);
+      }
     }
   }
 
   for(let i=animals.length-1;i>=0;i--){
     const animal=animals[i];
+    if(pets.includes(animal))continue;   // 已驯服的宠物不受伤
     const dx=animal.x-p.x,dy=animal.y-p.y,d=Math.hypot(dx,dy);
     const angleDiff=Math.atan2(Math.sin(Math.atan2(dy,dx)-aimAngle),Math.cos(Math.atan2(dy,dx)-aimAngle));
     if(d>p.range+9||Math.abs(angleDiff)>=0.9)continue;
@@ -694,10 +840,11 @@ function hitResource(list, hx, hy, hitR, type, miningPower){
       }
       o.hp -= type === 'stone' ? Math.max(1, miningPower) : 1;
       o.shake = 0.15;
-      const hitColor = o.ore ? ITEMS[o.ore].color :
+      const oreItem = o.ore ? ITEMS[o.ore] : null;
+      const hitColor = oreItem ? oreItem.color :
         type === 'wood' ? '#8a5a30' : type === 'stone' ? '#9a9aa6' : '#6a9a40';
       spawnParticles(o.x, cy, hitColor, 4);
-      if (o.ore) spawnText(o.x, cy - 8, o.hp + '耐久', ITEMS[o.ore].color);
+      if (oreItem) spawnText(o.x, cy - 8, o.hp + '耐久', oreItem.color);
 
       if (o.hp <= 0){
         if (type === 'wood'){
@@ -711,6 +858,11 @@ function hitResource(list, hx, hy, hitR, type, miningPower){
         } else if (type === 'stone'){
           const n = rndi(2, 3);
           for (let k=0;k<n;k++) dropPickup(o.x, o.y-4, 'stone');
+          // 石笋：额外掉一点矿粉
+          if (o.spike && Math.random() < 0.6){
+            const dust = ['copperDust','tinDust','leadDust'][rndi(0,2)];
+            dropPickup(o.x, o.y-4, dust);
+          }
         } else {
           const n = rndi(1, 2);
           for (let k=0;k<n;k++) dropPickup(o.x, o.y-4, 'fiber');
@@ -834,6 +986,7 @@ function hurtPlayer(dmg){
   player.hp -= real;
   player.invuln = 0.55;
   player.hurtFlash = 0.4;
+  if (window.PixelSurvivalAudio) PixelSurvivalAudio.play('hurt');
   shake = 5;
   spawnParticles(player.x, player.y-10, '#d04040', 6);
   spawnText(player.x, player.y-24, '-' + Math.round(real), '#ff5555');
@@ -860,6 +1013,7 @@ function dropPickup(x, y, type){
 }
 
 function spawnParticles(x, y, color, n){
+  if(window.PixelGfx)n=PixelGfx.scaleParticles(n);
   for (let i=0;i<n;i++){
     const life=rnd(0.3,0.75);
     particles.push({

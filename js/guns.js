@@ -23,10 +23,37 @@ function shootGun(){
   if(panel || G.gameOver || player.atkCd>0)return false;
   const gun=ITEMS[player.weapon];
   if(!gun || !gun.firearm || player.toolId)return false;
-  if(!(inv.ammo>0)){
-    player.atkCd=.25;showToast('弹药不足 · 铜器时代制作：铁锭1 + 铜锭1 → 12发','#ffc080');return false;
+  // 弓/弩：按住蓄力，蓄满才发射（倍率随蓄力提升）
+  let chargeScale=1;
+  if(gun.charge){
+    if(!player.chargeStart) player.chargeStart=performance.now();
+    const need=(gun.chargeTime||1.1)*1000;
+    const ratio=Math.min(1,(performance.now()-player.chargeStart)/need);
+    player.chargeRatio=ratio;
+    if(ratio<1){
+      player.atkCd=0.05;
+      // 轻微推近镜头 + 阶段提示音
+      if(window.Pixel3D && typeof Pixel3D.zoom==='function') Pixel3D.zoom(1 + ratio*0.05);
+      const stage=Math.min(3,Math.floor(ratio*3));
+      if(stage>=(player.chargeStage===undefined?-1:player.chargeStage)){
+        if(player.chargeStage!==stage && window.PixelSurvivalCharge) window.PixelSurvivalCharge.tick(stage);
+        player.chargeStage=stage;
+      }
+      return false;
+    }
+    if(window.Pixel3D && typeof Pixel3D.zoom==='function') Pixel3D.zoom(1);
+    shake = Math.max(shake, 0.8);   // 蓄满瞬间轻震
+    player.chargeStage=-1;
+    chargeScale=0.55+ratio*1.2;   // 蓄满 1.75 倍
+    player.chargeStart=0; player.chargeRatio=0;
   }
-  takeItem('ammo',1);
+  const ammoId=gun.ammoItem||'ammo';
+  if(!(inv[ammoId]>0)){
+    player.atkCd=.25;
+    showToast((ITEMS[ammoId]||{name:'弹药'}).name+'不足 · 先在合成台补充','#ffc080');
+    return false;
+  }
+  takeItem(ammoId,1);
   player.atkCd=gun.cd;player.swing=.1;player.attackAngle=Math.atan2(player.aimY,player.aimX);
   player.combo=0;player.comboWindow=0;
   const angle=player.attackAngle;
@@ -34,7 +61,7 @@ function shootGun(){
   for(let i=0;i<gun.pellets;i++){
     const a=angle+(gun.pellets===1?0:(i/(gun.pellets-1)-.5)*gun.spread*2);
     playerBullets.push({x:player.x,y:player.y-10,angle:a,remaining:gun.gunRange+G.growth.ranks.reach*3,
-      damage:player.damage,speed:320});
+      damage:Math.max(1,Math.round(player.damage*chargeScale)),speed:320,fromBow:ammoId==='arrow'});
   }
   combatFx.push({id:'muzzle',x:muzzleX,y:muzzleY,life:.07,max:.07});
   shake=Math.max(shake,gun.pellets>1?2:0.6);
@@ -47,15 +74,45 @@ function updatePlayerBullets(dt){
     let stopped=false;
     for(let step=0;step<steps && !stopped;step++){
       b.x+=Math.cos(b.angle)*distance/steps;b.y+=Math.sin(b.angle)*distance/steps;
+      // 箭矢拖尾
+      if (b.fromBow && Math.random() < 0.55){
+        spawnParticles(b.x - Math.cos(b.angle)*4, b.y - Math.sin(b.angle)*4, '#efe4c4', 1);
+      }
       if((G.mapId&&(b.x<0||b.x>WORLD_W||b.y<0||b.y>WORLD_H))||
         Math.abs(b.x)>1e9||Math.abs(b.y)>1e9||blockedByPlacedBlock(b.x,b.y,1)){stopped=true;break;}
       // 地形挡弹，但射击不会消耗采集物或穿过建筑。
       if(trees.some(o=>Math.hypot(b.x-o.x,b.y-(o.y-10))<o.r) ||
          rocks.some(o=>Math.hypot(b.x-o.x,b.y-(o.y-7))<o.r)){stopped=true;break;}
+      // 动物也能被箭矢/子弹打中
+      for(let j=animals.length-1;j>=0;j--){
+        const a=animals[j];
+        if(pets.includes(a)) continue;   // 已驯服的宠物不受伤
+        if(Math.hypot(b.x-a.x,b.y-(a.y-6))<a.r+3){
+          a.hp=(a.hp||6)-b.damage;
+          for(let k=0;k<6;k++) spawnParticles(b.x+rnd(-3,3), b.y+rnd(-3,3), '#ff9a9a', 1);
+          if(a.hp<=0){
+            for(let count=0;count<(a.type==='chicken'?1:2);count++) dropPickup(a.x,a.y-5,'meat');
+            if(a.type==='chicken'&&Math.random()<0.45) dropPickup(a.x,a.y-7,'fiber');
+            animals.splice(j,1);
+            showToast('猎到了动物 · 获得生肉','#e6c6a0');
+          }
+          stopped=true;break;
+        }
+      }
+      if(stopped) break;
       for(let j=enemies.length-1;j>=0;j--){
         const e=enemies[j];
         if(Math.hypot(b.x-e.x,b.y-(e.y-9))<e.r+2){
-          skillDamageEnemy(e,j,b.damage,b.angle);stopped=true;break;
+          skillDamageEnemy(e,j,b.damage,b.angle);
+          // 命中溅射
+          for (let k = 0; k < 8; k++){
+            spawnParticles(b.x + rnd(-4, 4), b.y + rnd(-4, 4), '#ffe9b0', 1);
+          }
+          // 弓箭/弩：命中后有概率把箭捡回来
+          if(b.fromBow && Math.random()<0.4){
+            dropPickup(e.x+(Math.random()-.5)*8, e.y-4, 'arrow');
+          }
+          stopped=true;break;
         }
       }
     }
@@ -102,8 +159,7 @@ function drawCompactHud(){
 function drawGuidePanel(){
   const english=gameLanguage==='en';
   const japanese=gameLanguage==='ja';
-  ctx.fillStyle=guideReturnPanel==='title'?'#172a2a':'rgba(16,10,5,0.9)';
-  ctx.fillRect(0,0,W,H);
+  drawMcBackdrop(0.66);
   const x=22,y=12,w=436,h=246;
   uiPanel(x-3,y-3,w+6,h+6,{});
   uiPanel(x,y,w,h,{title:english?'HELP CENTER · CONTROLS':japanese?'ヘルプ · 操作方法':'帮助中心 · 按键与操作'});
@@ -128,6 +184,8 @@ function drawGuidePanel(){
       ['Machines','Interact with a placed machine to set input, output and recipes.'],
       ['Touch screen','Tap for pointer actions; use the keyboard for movement.'],
       ['Survival time','One in-game day lasts 10 minutes by default.'],
+      ['Video & performance','L / F3 sets presets, resolution, draw distance, particles, FPS cap and auto quality.'],
+      ['3D camera','WASD moves relative to the camera; middle-drag rotates, Shift+wheel zooms.'],
       ['More help','J / F1 opens this center; Esc closes it.'],
     ],
     [
@@ -164,6 +222,8 @@ function drawGuidePanel(){
       ['機械','設置済みの機械を操作して、投入物、出力、レシピを設定。'],
       ['タッチ操作','タップでポインター操作。移動にはキーボードを使用。'],
       ['生存時間','ゲーム内の1日は、初期設定で現実の10分。'],
+      ['画質と性能','L / F3で画質プリセット、解像度、描画距離、粒子、FPS上限、自動調整を設定。'],
+      ['3D 視点','WASDは視点方向へ移動。中ボタンドラッグで回転、Shift＋ホイールで拡大縮小。'],
       ['ヘルプを開く','J / F1で表示、Escで閉じる。'],
     ],
     [
@@ -187,12 +247,14 @@ function drawGuidePanel(){
       ['放置火把','Q'],['保存游戏','K'],['暂停 / 继续','P / Esc'],['小地图','M'],
       ['帮助中心','J / F1'],['人物外观','O'],['技能树','N'],
       ['成长强化','B / 1–8'],['成就','G'],['技能','Z X V Y U'],
-      ['游戏创作中心','F2'],['重新开始（需确认）','暂停 / 结束时按 R'],
+      ['游戏创作中心','F2'],['输入锁定','F6（屏蔽浏览器右键与快捷键）'],['重新开始（需确认）','暂停 / 结束时按 R'],
     ],
     [
       ['鼠标左键','攻击、采集、点击界面按钮和物品。'],
       ['鼠标右键','使用选中物品、喂养动物、河流取水或交互。'],
-      ['拖动物品','整理背包和快捷栏；拖到垃圾桶可丢弃整组。'],
+      ['拿放物品','左键拿起整组、右键拿一半；拖到垃圾桶可丢弃整组。'],
+      ['合成界面','工作台 3×3 / 背包 2×2；右侧配方手册可一键摆放材料。'],
+      ['第一人称','F5 切换第一 / 第三人称，第一人称会锁定鼠标。'],
       ['鼠标滚轮','切换快捷栏；合成界面中可滚动配方列表。'],
       ['暂停菜单','继续、重开、存档读档、人物外观或创作中心。'],
       ['主菜单','继续、新世界、存档、语言、帮助和创作中心。'],
@@ -200,6 +262,8 @@ function drawGuidePanel(){
       ['机器','靠近已放置的机器交互，管理输入、产物与配方。'],
       ['触屏','点击可执行鼠标操作；移动请使用键盘。'],
       ['生存时间','默认游戏内一天为现实时间 10 分钟。'],
+      ['画面设置','L 打开画质预设、分辨率、视距、粒子、FPS 上限与自动降质。'],
+      ['3D 操作','WASD 按镜头方向移动；中键拖动旋转，Shift + 滚轮缩放，F5 切换视角。'],
       ['更多帮助','按 J / F1 打开本中心，Esc 关闭。'],
     ],
     [
@@ -211,7 +275,7 @@ function drawGuidePanel(){
       ['科技按钮','点击顶部科技 / 日期信息可打开科技面板。'],
       ['成长按钮','点击成长 / 经验条，或按 B 查看永久强化。'],
       ['技能槽','点击技能 HUD 打开技能树，再点击槽位选择快捷技能。'],
-      ['背包按钮','将防具拖到对应装备槽穿戴；其他物品可拖动整理或丢弃。'],
+      ['背包按钮','把防具放进对应装备槽穿戴；左键拿起物品、右键拿一半。'],
       ['机器面板','切换输入 / 产物分页，并选择配方进行加工。'],
       ['创作中心','使用工坊分类、物品选择、上传、预览与保存按钮。'],
     ],
@@ -221,19 +285,22 @@ function drawGuidePanel(){
     const columnWidth=205,columns=[rows.slice(0,11),rows.slice(11)];
     columns.forEach((column,columnIndex)=>column.forEach(([label,key],index)=>{
       const rowY=y+38+index*15,rowX=x+12+columnIndex*columnWidth;
-      R(rowX,rowY,columnWidth-8,13,index%2?'#f0e5c4':'#e4d5ad');
-      txt(label,rowX+5,rowY+3,{size:6,bold:true,color:'#5b4a32'});
-      txt(key,rowX+columnWidth-12,rowY+3,{size:6,bold:true,color:'#456b43',align:'right'});
+      R(rowX,rowY,columnWidth-8,13,index%2?'#c6c6c6':'#bcbcbc');
+      txt(label,rowX+5,rowY+3,{size:6,bold:true,color:'#3f3f3f'});
+      txt(key,rowX+columnWidth-12,rowY+3,{size:6,bold:true,color:'#3f5f2c',align:'right'});
     }));
   }else{
     setFont(6,true);
     const labelWidth=Math.max(...rows.map(([label])=>ctx.measureText(label).width));
     const descriptionX=x+17+labelWidth+8;
+    // 条目较多时压缩行距，避免压到页码与按钮
+    const rowGap=rows.length>11?13:16;
+    const rowHeight=rows.length>11?12:14;
     rows.forEach(([label,description],index)=>{
-      const rowY=y+38+index*16;
-      R(x+12,rowY,w-24,14,index%2?'#f0e5c4':'#e4d5ad');
-      txt(label,x+17,rowY+3,{size:6,bold:true,color:'#5b4a32'});
-      txt(description,descriptionX,rowY+3,{size:6,color:'#456b43'});
+      const rowY=y+38+index*rowGap;
+      R(x+12,rowY,w-24,rowHeight,index%2?'#c6c6c6':'#bcbcbc');
+      txt(label,x+17,rowY+2,{size:6,bold:true,color:'#3f3f3f'});
+      txt(description,descriptionX,rowY+2,{size:6,color:'#3f5f2c'});
     });
   }
   const pageLabel=english?'PAGE '+(guidePage+1)+' / '+pages.length:
@@ -245,9 +312,10 @@ function drawGuidePanel(){
   uiButtons.push({x:prevX,y:buttonY,w:62,h:17,fn:()=>{guidePage=(guidePage+pages.length-1)%pages.length;}});
   uiButton(nextX,buttonY,62,17,english?'Next':japanese?'次へ':'下一页',{kind:'wood'});
   uiButtons.push({x:nextX,y:buttonY,w:62,h:17,fn:()=>{guidePage=(guidePage+1)%pages.length;}});
-  const closeX=x+w-150;
+  const closeX=x+w-158;
   uiButton(closeX,buttonY,72,17,english?'Close':japanese?'閉じる':'关闭',{kind:'green'});
   uiButtons.push({x:closeX,y:buttonY,w:72,h:17,fn:()=>{
     clearInput();panel=guideReturnPanel;guideReturnPanel=null;
+    if(typeof syncPointerLock==='function')syncPointerLock();
   }});
 }

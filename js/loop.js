@@ -17,8 +17,8 @@ function drawTutorial(){
   const index = G.tutorialDone.indexOf(false);
   const objectives = [
     { title:'收集木头', progress:Math.min(1,G.tutorialWood/8), detail:'靠近树，按住左键采集' },
-    { title:'制作木剑', progress:0, detail:'按 C 制作 · 需要木头×8' },
-    { title:'制作火把', progress:0, detail:'木头×2 + 纤维×1 · Q 放置' },
+    { title:'制作木剑', progress:0, detail:'木板×2 + 木棍×1 · 需先放下工作台' },
+    { title:'制作火把', progress:0, detail:'煤炭×1 + 木棍×1 · Q 放置' },
     { title:'度过第一夜', progress:0, detail:'准备食物和火把，活到第2天' },
   ];
   if (index === 1 && G.tutorialSword) objectives[index].progress = 1;
@@ -53,13 +53,23 @@ function drawTutorial(){
 }
 
 let lastTime = performance.now();
+let lastRendered = 0;
 
 function loop(now){
   let dt = (now - lastTime) / 1000;
   lastTime = now;
   if (dt > 0.05) dt = 0.05;
 
+  // 帧率上限：跳过多余的帧（逻辑与画面一起跳过，dt 会在下一帧累积）
+  const fpsCap = window.PixelGfx ? PixelGfx.get().fpsCap : 0;
+  if (fpsCap > 0 && now - lastRendered < (1000 / fpsCap) - 1.2){
+    requestAnimationFrame(loop);
+    return;
+  }
+  lastRendered = now;
+
   fpsSmooth += (1/Math.max(dt, 0.001) - fpsSmooth) * 0.05;
+  if (window.PixelGfx) PixelGfx.noteFrame(dt, now);
 
   if (!G.gameOver){
     update(dt);
@@ -73,6 +83,7 @@ function loop(now){
     updateParticles(dt, true);
   }
 
+  if (typeof craftReturnOrphans === 'function') craftReturnOrphans();
   render();
   requestAnimationFrame(loop);
 }

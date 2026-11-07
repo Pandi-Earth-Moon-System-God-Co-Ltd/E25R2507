@@ -107,6 +107,22 @@ function updateAnimals(dt){
 }
 
 function update(dt){
+  // 任何界面打开时都释放鼠标（否则光标锁在游戏里退不出来）
+  if (typeof panel !== 'undefined' && panel && typeof document !== 'undefined' &&
+      document.pointerLockElement && document.exitPointerLock){
+    document.exitPointerLock();
+  }
+  // 洞穴性能兜底：如果进洞后连续两帧卡顿超过 2 秒，自动送回地表
+  if (G && G.inCave && typeof returnToSurface === 'function'){
+    if (dt > 2){
+      G.caveSlow = (G.caveSlow || 0) + 1;
+      if (G.caveSlow >= 2){
+        G.caveSlow = 0;
+        returnToSurface();
+        showToast('洞穴渲染过慢，已自动返回地表', '#ffc080');
+      }
+    } else G.caveSlow = 0;
+  }
   G.time += dt;
   G.totalTime += dt;
   if(!panel||panel==='machine')updateMachines(dt);
@@ -169,13 +185,22 @@ function update(dt){
   if (G.day % Math.min(7,getYearLength()) === 0 && G.dayTime >= 0.46 && !G.bloodMoonWarning){
     G.bloodMoon = true;
     G.bloodMoonWarning = true;
-    showToast('血月降临！怪物更强、更密集', '#ff5b68');
+    // 血月逐轮升级：第 1 次最温和，之后怪物更多、更凶
+    G.bloodMoons = (G.bloodMoons || 0) + 1;
+    G.bloodMoonLevel = Math.min(5, G.bloodMoons);
+    const levelText = ['轻微', '明显', '强烈', '致命', '血月狂潮'][G.bloodMoonLevel - 1];
+    showToast('血月降临（' + levelText + ' · 第 ' + G.bloodMoonLevel + ' 级）· 怪物更强、更密集', '#ff5b68');
+    if (window.PixelSurvivalBloodMoon) window.PixelSurvivalBloodMoon.set(true);
+    if (G.bloodMoonLevel >= 3) showToast('血月骑士即将出现，准备好武器与护甲', '#ff8b8b');
   }
   updatePollution(dt);
   const naturalDarkness = getDarkness(G.dayTime);
-  if (G.bloodMoon && G.dayTime > 0.9 && naturalDarkness < 0.25) G.bloodMoon = false;
+  if (G.bloodMoon && G.dayTime > 0.9 && naturalDarkness < 0.25){
+    G.bloodMoon = false;
+    if (window.PixelSurvivalBloodMoon) window.PixelSurvivalBloodMoon.set(false);
+  }
   G.darkness = G.bloodMoon && naturalDarkness > 0.25
-    ? Math.max(naturalDarkness, 0.93)
+    ? Math.max(naturalDarkness, 0.93 + Math.min(0.05, (G.bloodMoonLevel || 1) * 0.01))
     : naturalDarkness;
   const inCave = G.worldLayer==='cave';
   if (inCave !== G.inCave){
@@ -225,6 +250,15 @@ function updatePlayer(dt){
 
   if (len > 0){
     mx /= len; my /= len;
+    // 3D 模式下按镜头朝向移动（镜头可旋转，WASD 始终对应屏幕方向）
+    if(window.Pixel3D&&Pixel3D.active()){
+      const yaw=Pixel3D.cameraYaw();
+      const cos=Math.cos(yaw),sin=Math.sin(yaw);
+      const inputRight=mx,inputUp=-my;
+      const worldX=cos*inputRight-sin*inputUp;
+      const worldY=-sin*inputRight-cos*inputUp;
+      mx=worldX; my=worldY;
+    }
     p.walkPhase += dt * (wantSprint ? 9 : 6);
     p.facingAngle=Math.atan2(my,mx);
     if (mx !== 0) p.facing = mx > 0 ? 1 : -1;
@@ -233,7 +267,14 @@ function updatePlayer(dt){
   }
 
   // 瞄准
-  const cursorWorld=screenToWorld(mouse.x,mouse.y);
+  const firstPerson = !!(window.Pixel3D && typeof Pixel3D.firstPerson === 'function' && Pixel3D.firstPerson());
+  if (firstPerson){
+    // 第一人称：准星固定在屏幕中心
+    mouse.x = W / 2; mouse.y = H / 2; mouse.active = true;
+  }
+  const cursorWorld=(window.Pixel3D&&Pixel3D.active())
+    ?Pixel3D.aimPoint(mouse.x,mouse.y)
+    :screenToWorld(mouse.x,mouse.y);
   mouse.wx=cursorWorld.x;
   mouse.wy=cursorWorld.y;
   if (mouse.active){
@@ -439,7 +480,18 @@ function updateEnemies(dt){
       e.dashT=e.type==='stalker'?0.55:0.42;
     }
     let moveFactor=e.dashT>0?(e.type==='stalker'?2.2:1.9):0.72;
+    // 血月骑士：血量低于 30% 狂暴
+    const enraged = e.type === 'bloodKnight' && e.maxHp > 0 && e.hp < e.maxHp * 0.3;
+    if (enraged) moveFactor *= 1.5;
     const shouldMove = ranged ? (d > 118 || d < 58) : d > 15;
+    // 蜘蛛：侧向绕行（正弦横移），不直冲而是找角度扑上来
+    if (e.fast && !ranged && d > 26){
+      const side = Math.sin((e.wobble || 0) * 0.7 + (e.x + e.y) * 0.01) * 0.85;
+      const perpX = -dy / d, perpY = dx / d;
+      const flank = e.speed * 0.55 * dt * side;
+      const fx = perpX * flank, fy = perpY * flank;
+      if (!blockedByPlacedBlock(e.x + fx, e.y + fy, e.r)){ e.x += fx; e.y += fy; }
+    }
     if (shouldMove){
       const direction = ranged && d < 58 ? -1 : 1;
       const sp = e.speed * moveFactor * (1 + Math.sin(e.wobble) * 0.12);
@@ -452,12 +504,60 @@ function updateEnemies(dt){
         if (!blockedByPlacedBlock(e.x, e.y + stepY, e.r)) e.y += stepY;
       }
     }
+    // 苦力怕：贴身后开始膨胀引信，1.5 秒后爆炸
+    if (e.type === 'creeper'){
+      if (d < 40){
+        e.fuse = (e.fuse || 0) + dt;
+        e.wobble = (e.wobble || 0) + dt * 22;
+        if (e.fuse >= 1.5){
+          const blast = 62;
+          if (d < blast) hurtPlayer(e.damage * 2.4);
+          // 爆炸掀掉周围的放置方块与耕地
+          for (let b = placedBlocks.length - 1; b >= 0; b--){
+            if (Math.hypot(placedBlocks[b].x - e.x, placedBlocks[b].y - e.y) < blast) placedBlocks.splice(b, 1);
+          }
+          for (let f = farmPlots.length - 1; f >= 0; f--){
+            if (Math.hypot(farmPlots[f].x - e.x, farmPlots[f].y - e.y) < blast) farmPlots.splice(f, 1);
+          }
+          for (let k = 0; k < 14; k++){
+            spawnParticles(e.x + rnd(-14, 14), e.y + rnd(-14, 14), '#d8f0a0', 1);
+          }
+          showToast('苦力怕爆炸！', '#ffb060');
+          if (window.PixelSurvivalAudio) PixelSurvivalAudio.play('hurt');
+          enemies.splice(i, 1);
+          continue;
+        }
+      } else if (e.fuse){
+        e.fuse = Math.max(0, e.fuse - dt * 2);
+      }
+    }
+    // 血月骑士：周期性血爆 + 冲锋
+    if (e.type === 'bloodKnight'){
+      e.skillCd = (e.skillCd === undefined ? 4 : e.skillCd) - dt;
+      if (e.skillCd <= 0 && d < 170){
+        e.skillCd = 6.5;
+        if (d < 96){
+          hurtPlayer(e.damage * 1.8);
+          showToast('血月骑士 · 血爆！', '#ff8b8b');
+        } else {
+          // 远距离：冲锋
+          const lunge = Math.min(48, d - 20);
+          e.x += dx / d * lunge;
+          e.y += dy / d * lunge;
+          showToast('血月骑士 · 冲锋！', '#ff8b8b');
+        }
+        for (let k = 0; k < 18; k++){
+          spawnParticles(e.x + rnd(-24, 24), e.y - 9 + rnd(-24, 24), '#ff6b7a', 1);
+        }
+        if (window.PixelSurvivalAudio) PixelSurvivalAudio.play('hurt');
+      }
+    }
     if(G.mapId){e.x=clamp(e.x,8,WORLD_W-8);e.y=clamp(e.y,8,WORLD_H-8);}
     else{e.x=clamp(e.x,-1e9,1e9);e.y=clamp(e.y,-1e9,1e9);}
 
     e.atkCd -= dt;
     if (ranged && d < 150 && d > 42 && e.atkCd <= 0 && !G.gameOver){
-      e.atkCd = G.bloodMoon ? 1.65 : 2.35;
+      e.atkCd = (G.bloodMoon ? 1.65 : 2.35) * (enraged ? 0.5 : 1);
       const shotDx = player.x - e.x, shotDy = player.y - 9 - (e.y - 12);
       const shotLen = Math.hypot(shotDx, shotDy) || 1;
       enemyShots.push({
@@ -636,7 +736,9 @@ function updateSpawning(dt){
     spawnTimer -= dt;
     const maxE = Math.min(24, Math.ceil((3 + G.day * 2 + G.tech * 2 + (G.bloodMoon ? 8 : 0))*enemyRate));
     if (spawnTimer <= 0 && enemies.length < maxE){
-      spawnTimer = Math.max(0.55, 2.8 - G.day * 0.18 - G.tech * 0.12 - (G.bloodMoon ? 0.9 : 0))/enemyRate;
+      const bloodBoost = G.bloodMoon ? 0.9 + Math.min(5, G.bloodMoonLevel || 1) * 0.25 : 0;
+      spawnTimer = Math.max(G.bloodMoon ? 0.3 : 0.55,
+        2.8 - G.day * 0.18 - G.tech * 0.12 - bloodBoost) / enemyRate;
       spawnEnemy();
     }
   } else {
@@ -657,14 +759,21 @@ function spawnEnemy(){
   let type = 'shambler';
   const deepCave=G.inCave&&!G.mapId&&Math.abs(Math.floor(player.y/TILE))>80||
     G.mapId&&player.y>=WORLD_H*0.76;
+  // 血月等级越高：血月骑士 / 骷髅 / 蜘蛛的比例越大
+  const bm = G.bloodMoon ? Math.min(5, G.bloodMoonLevel || 1) : 0;
   if(deepCave&&G.day>=3&&roll<0.18)type='caveWarden';
-  else if (G.bloodMoon && roll < 0.09) type = 'bloodKnight';
-  else if (G.day >= 5 && roll < 0.2) type = 'brute';
-  else if (G.day >= 3 && roll < 0.38) type = 'spitter';
-  else if (G.day >= 4 && roll < 0.58) type = 'stalker';
-  else if (roll < Math.min(0.78, 0.32 + G.day * 0.045)) type = 'runner';
+  else if (bm && roll < 0.05 + bm * 0.045) type = 'bloodKnight';
+  // 洞穴里骷髅/蜘蛛更多，形成远程+绕后的组合
+  else if (G.inCave && G.day >= 2 && roll < 0.30) type = 'spitter';
+  else if (G.inCave && G.day >= 3 && roll < 0.46) type = 'stalker';
+  else if (G.day >= 5 && roll < 0.2 + bm * 0.03) type = 'brute';
+  else if (G.day >= 3 && roll < 0.38 + bm * 0.06) type = 'spitter';
+  else if (G.day >= 4 && roll < 0.58 + bm * 0.06) type = 'stalker';
+  else if (roll < Math.min(0.88, 0.32 + G.day * 0.045 + bm * 0.05)) type = 'runner';
+  // 苦力怕：第 3 天起有一定概率替代普通僵尸
+  if (type === 'shambler' && G.day >= 3 && Math.random() < 0.28 + (G.bloodMoon ? (G.bloodMoonLevel || 1) * 0.06 : 0)) type = 'creeper';
   const fast = type === 'runner' || type === 'stalker';
-  const hpBase = type === 'caveWarden'?38:type === 'bloodKnight' ? 34 : type === 'brute' ? 24 : type === 'spitter' ? 9 : fast ? 7 : 12;
+  const hpBase = type === 'caveWarden'?38:type === 'bloodKnight' ? 34 : type === 'brute' ? 24 : type === 'spitter' ? 9 : type === 'creeper' ? 10 : fast ? 7 : 12;
   const pollutionMultiplier=G.pollution>=600?1.35:G.pollution>=300?1.2:1;
   const hp = (hpBase + G.day * (type === 'bloodKnight'||type==='caveWarden' ? 3 : 1.4))*pollutionMultiplier;
 

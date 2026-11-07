@@ -48,7 +48,7 @@
     if(!audioContext)return;
     musicGain.gain.setTargetAtTime(settings.music?settings.volume:0,audioContext.currentTime,0.15);
     soundGain.gain.setTargetAtTime(settings.sound?0.35:0,audioContext.currentTime,0.1);
-    if(typeof setRenderQuality==='function')setRenderQuality(settings.quality);
+    if(window.PixelGfx)PixelGfx.apply();
     if(customMusicPlayer){
       if(musicTimer){window.clearInterval(musicTimer);musicTimer=0;}
       customMusicPlayer.volume=settings.music?Math.min(1,settings.volume*2):0;
@@ -92,11 +92,133 @@
     try{
       localStorage.setItem(KEY,JSON.stringify(next));
       settings=next;
-      if(typeof setRenderQuality==='function')setRenderQuality(settings.quality);
+      if(window.PixelGfx)PixelGfx.apply();
+      else if(typeof setRenderQuality==='function')setRenderQuality(settings.quality);
       apply();
+      if(window.PixelGfx&&(patch.quality!==undefined||patch.fog!==undefined))
+        PixelGfx.syncLegacy({quality:patch.quality,fog:patch.fog});
       return {...settings};
     }catch(error){
       throw new Error('音画设置保存失败：'+error.message);
+    }
+  }
+
+  /* 《我的世界》风格音效：用 WebAudio 现场合成，替代机械音 */
+  function sfxNoise(dur, freq, q, gain){
+    const rate = audioContext.sampleRate;
+    const length = Math.max(1, Math.floor(rate * dur));
+    const buffer = audioContext.createBuffer(1, length, rate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / length);
+    const source = audioContext.createBufferSource();
+    source.buffer = buffer;
+    const filter = audioContext.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = freq;
+    filter.Q.value = q;
+    const amp = audioContext.createGain();
+    amp.gain.value = gain;
+    amp.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + dur);
+    source.connect(filter); filter.connect(amp); amp.connect(typeof soundGain !== 'undefined' && soundGain ? soundGain : audioContext.destination);
+    source.start();
+  }
+  function sfxTone(freq, dur, type, gain, slideTo){
+    const osc = audioContext.createOscillator();
+    osc.type = type || 'sine';
+    osc.frequency.setValueAtTime(freq, audioContext.currentTime);
+    if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, audioContext.currentTime + dur);
+    const amp = audioContext.createGain();
+    amp.gain.value = gain;
+    amp.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + dur);
+    osc.connect(amp); amp.connect(typeof soundGain !== 'undefined' && soundGain ? soundGain : audioContext.destination);
+    osc.start(); osc.stop(audioContext.currentTime + dur + 0.02);
+  }
+  const MC_SFX = {
+    attack: () => { sfxNoise(0.09, 850, 1.4, 0.30); sfxTone(170, 0.06, 'square', 0.10, 110); },
+    collect: () => { sfxTone(760, 0.05, 'triangle', 0.22); sfxTone(1140, 0.06, 'triangle', 0.16); },
+    mine: () => { sfxNoise(0.07, 1500, 2.5, 0.26); sfxTone(240, 0.05, 'square', 0.08); },
+    chop: () => { sfxNoise(0.10, 420, 1.6, 0.28); sfxTone(150, 0.09, 'triangle', 0.16, 90); },
+    build: () => { sfxNoise(0.12, 260, 1.1, 0.30); sfxTone(110, 0.10, 'sine', 0.16, 70); },
+    eat: () => { for (let i = 0; i < 3; i++) setTimeout(() => sfxNoise(0.06, 700, 1.8, 0.22), i * 110); },
+    drink: () => { for (let i = 0; i < 3; i++) setTimeout(() => sfxTone(420 - i * 60, 0.07, 'sine', 0.16), i * 120); },
+    water: () => { sfxNoise(0.28, 900, 0.9, 0.24); },
+    hurt: () => { sfxTone(300, 0.16, 'square', 0.20, 120); sfxNoise(0.10, 600, 1.2, 0.18); },
+    levelUp: () => { [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => sfxTone(f, 0.16, 'triangle', 0.18), i * 90)); },
+    craft: () => { sfxNoise(0.08, 520, 1.4, 0.20); sfxTone(330, 0.10, 'triangle', 0.14, 440); },
+    machineOpen: () => { sfxTone(260, 0.08, 'square', 0.12); sfxTone(390, 0.09, 'square', 0.10); },
+    scan: () => { sfxTone(660, 0.10, 'sine', 0.14, 990); },
+    cave: () => { sfxTone(160, 0.35, 'sine', 0.20, 90); },
+    caveOut: () => { sfxTone(220, 0.28, 'sine', 0.18, 420); },
+    slash: () => { sfxNoise(0.10, 1800, 0.9, 0.24); sfxTone(520, 0.07, 'triangle', 0.10, 300); },
+  };
+
+  /* 弓箭蓄力：按阶段播放升调短音 */
+  window.PixelSurvivalCharge = { tick: function(stage){
+    try{
+      if (!audioContext || audioContext.state !== 'running' || !settings.sound) return;
+      sfxTone(520 + stage * 260, 0.06, 'triangle', 0.10);
+    }catch(error){ /* ignore */ }
+  } };
+
+  /* 血月低频氛围音：低沉嗡鸣 + 缓慢起伏 */
+  let bloodMoonOsc = null, bloodMoonGain = null, bloodMoonLfo = null;
+  function setBloodMoon(active){
+    try{
+      if (active){
+        if (bloodMoonOsc || !audioContext || audioContext.state !== 'running') return;
+        bloodMoonOsc = audioContext.createOscillator();
+        bloodMoonOsc.type = 'sine';
+        bloodMoonOsc.frequency.value = 58;
+        bloodMoonGain = audioContext.createGain();
+        bloodMoonGain.gain.value = 0.045;
+        bloodMoonLfo = audioContext.createOscillator();
+        bloodMoonLfo.frequency.value = 0.18;
+        const lfoGain = audioContext.createGain();
+        lfoGain.gain.value = 0.03;
+        bloodMoonLfo.connect(lfoGain);
+        lfoGain.connect(bloodMoonGain.gain);
+        bloodMoonOsc.connect(bloodMoonGain);
+        bloodMoonGain.connect(typeof soundGain !== 'undefined' && soundGain ? soundGain : audioContext.destination);
+        bloodMoonOsc.start();
+        bloodMoonLfo.start();
+      } else if (bloodMoonOsc){
+        try{ bloodMoonOsc.stop(); if (bloodMoonLfo) bloodMoonLfo.stop(); }catch(error){ /* ignore */ }
+        bloodMoonOsc = null; bloodMoonGain = null; bloodMoonLfo = null;
+      }
+    }catch(error){ /* 音频不可用时忽略 */ }
+  }
+  window.PixelSurvivalBloodMoon = { set: setBloodMoon };
+
+  /* 材质包提取的音效样本（js/mc-sounds.js），按事件名缓存播放器 */
+  const samplePlayers=Object.create(null);
+  const MACHINE_SAMPLE={copperFurnace:'machine',crusher:'macerator',solarPanel:'arc',
+    automaticHarvester:'chainsaw',logisticsRouter:'machineOpen',steamBoiler:'boiler',
+    steamForge:'forge',arcFurnace:'arc',electrolyzer:'chemical',centrifuge:'centrifuge',
+    highCompressor:'compressor',assembler:'craft',mixer:'mixer',chemicalReactor:'chemical',miner:'miner',bender:'forge',wiremill:'cut',washer:'cooling',transformer:'arc',batteryBuffer:'electric'};
+  // 徒手/木石用轻敲声，别拿锯子、钻头这种机械音去当采集音
+  const COLLECT_SAMPLE={rock:'soft_hammer',tree:'soft_hammer',bush:'soft_hammer'};
+  const BLADE=/Sword|Knife|Blade|Axe/i;
+  function playSample(name,contentId){
+    const library=window.PixelSurvivalSounds;
+    let key=name;
+    if(name==='machine'&&MACHINE_SAMPLE[contentId])key=MACHINE_SAMPLE[contentId];
+    else if(name==='collect'&&COLLECT_SAMPLE[contentId])key=COLLECT_SAMPLE[contentId];
+    else if(name==='attack')key=BLADE.test(contentId||'')?'slash':'attack';
+    const url=library&&(library[key]||library[name]);
+    if(!url)return false;
+    try{
+      let base=samplePlayers[key];
+      if(!base){
+        base=samplePlayers[key]=new Audio(url);
+        base.preload='auto';
+      }
+      const player=base.cloneNode();
+      player.volume=Math.max(0.05,Math.min(0.8,settings.volume*2.2));
+      const started=player.play();
+      if(started&&typeof started.catch==='function')started.catch(()=>{});
+      return true;
+    }catch(error){
+      return false;
     }
   }
 
@@ -109,6 +231,12 @@
       player.play().catch(error=>console.warn('[Pixel Survival] 自定义操作音效无法播放',error));
       return;
     }
+    // 人的动作优先用《我的世界》风格合成音；机器保留机械样本
+    const isMachine = name === 'machine' || name === 'machineOpen';
+    if (!isMachine && MC_SFX[name]){
+      try{ MC_SFX[name](); return; }catch(error){ /* 合成失败则回退样本 */ }
+    }
+    if(playSample(name,contentId))return;
     const sounds={
       attack:[220,0.07,'square'],eat:[520,0.11,'sine'],feed:[660,0.14,'triangle'],
       breed:[784,0.2,'triangle'],cave:[146,0.25,'sine'],collect:[440,0.08,'triangle'],
@@ -146,7 +274,8 @@
   }
 
   readSettings();
-  if(typeof setRenderQuality==='function')setRenderQuality(settings.quality);
+  if(window.PixelGfx)PixelGfx.apply();
+  else if(typeof setRenderQuality==='function')setRenderQuality(settings.quality);
   window.addEventListener('pointerdown',unlock);
   window.addEventListener('keydown',unlock);
   window.PixelSurvivalAudio={

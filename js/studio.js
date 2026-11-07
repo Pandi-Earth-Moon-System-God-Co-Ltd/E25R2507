@@ -15,7 +15,7 @@ const STUDIO_MODULES = [
       ['uiTitle','机器界面标题','新机器 · 加工'],['uiStatusLabel','状态栏文字','状态'],
       ['uiInputLabel','输入栏文字','输入'],['uiOutputLabel','产物栏文字','产物'],
       ['uiFuelLabel','燃料栏文字','燃料'],['uiFooter','界面说明','加工时间与电力状态'],
-      ['uiBackground','界面底色','#f3e5c2','color'],['uiAccent','界面强调色','#65964d','color'],
+      ['uiBackground','界面底色','#c6c6c6','color'],['uiAccent','界面强调色','#4f7a32','color'],
       ['uiText','界面文字色','#5b4a32','color']]},
   {id:'character',name:'角色外观',description:'在工作室直接编辑角色外观，并可上传游戏内使用的角色像素立绘。',mode:'runtime',
     fields:[['appearance_skin','肤色','0','select',PLAYER_CUSTOMIZATION.skin.map((option,index)=>[String(index),option.name])],
@@ -192,7 +192,7 @@ function studioPaintWorldCell(event,canvas){
 }
 function studioSetStatus(message,isError=false){
   const status=studioRoot.querySelector('.studio-status');
-  if(status){status.textContent=localizeGameText(message);status.style.color=isError?'#a43e32':'#42673c';}
+  if(status){status.textContent=localizeGameText(message);status.style.color=isError?'#ff8a7a':'#a8e08a';}
 }
 function studioItems(){
   return Object.entries(ITEMS).filter(([,item])=>item.kind!=='placeable')
@@ -1421,7 +1421,7 @@ function studioBeginMachineEdit(id){
     uiStatusLabel:type.ui&&type.ui.statusLabel||'状态',uiInputLabel:type.ui&&type.ui.inputLabel||'输入',
     uiOutputLabel:type.ui&&type.ui.outputLabel||'产物',uiFuelLabel:type.ui&&type.ui.fuelLabel||'燃料',
     uiFooter:type.ui&&type.ui.footer||'加工时间与电力状态',
-    uiBackground:type.ui&&type.ui.background||'#f3e5c2',
+    uiBackground:type.ui&&type.ui.background||'#c6c6c6',
     uiAccent:type.ui&&type.ui.accent||'#65964d',uiText:type.ui&&type.ui.text||'#5b4a32'};
   for(const [key,value] of Object.entries(values)){
     const field=studioRoot.querySelector('[name="'+key+'"]');
@@ -1451,6 +1451,20 @@ function studioBeginBlueprintEdit(kind,id){
   studioSetStatus('编辑蓝图中 · 保存后会更新本地内容库。');
   renderStudioPreview();
 }
+/* 字段分组：把长表单拆成几个清晰的区块 */
+function studioFieldGroup(key){
+  if (key === 'id' || key === 'name' || key === 'desc' || key === 'blockId') return { id:'basic', title:'基本信息' };
+  if (key.startsWith('appearance_')) return { id:'look', title:'外观与界面' };
+  if (/^(texture|spriteAsset|ui|color|color2)/.test(key)) return { id:'look', title:'外观与界面' };
+  if (/^(seed|dayLength|seasonDays|hungerRate|thirstRate|enemyRate|startingFood|startingWater)/.test(key))
+    return { id:'rules', title:'世界与生存规则' };
+  if (/^(hunger|hydration|heal|dmg|range|def|mine|hardness|drop|hp|speed|damage|ai|fuel)/.test(key))
+    return { id:'stats', title:'数值设定' };
+  if (/^(level|xpCost|cost|cd|requires|effect)/.test(key)) return { id:'skill', title:'技能参数' };
+  if (/^(event|action|value)/.test(key)) return { id:'logic', title:'触发与动作' };
+  return { id:'other', title:'其他设定' };
+}
+
 function renderGameStudio(){
   const module=STUDIO_MODULES.find(entry=>entry.id===studioTab)||STUDIO_MODULES[0];
   studioPendingAssets={};
@@ -1458,50 +1472,77 @@ function renderGameStudio(){
   const windowEl=document.createElement('section');
   windowEl.className='studio-window';windowEl.setAttribute('role','dialog');windowEl.setAttribute('aria-modal','true');
   windowEl.setAttribute('aria-labelledby','studio-title');
+
+  /* ── 顶栏 ─────────────────────────────── */
   const header=document.createElement('header');header.className='studio-header';
-  const title=document.createElement('div');title.innerHTML='<h1 id="studio-title">GAME STUDIO · 游戏创作中心</h1><p>游戏内创作、保存与分发内容</p>';
-  const close=document.createElement('button');close.type='button';close.className='studio-close';close.textContent='关闭 · Esc';close.addEventListener('click',closeGameStudio);
-  header.append(title,close);windowEl.append(header);
-  const moduleGroup=STUDIO_MODULE_GROUPS.find(group=>group.members.includes(studioTab));
-  const nav=document.createElement('nav');nav.className='studio-tabs';nav.setAttribute('aria-label','创作模块');
+  const title=document.createElement('div');title.className='studio-brand';
+  title.innerHTML='<h1 id="studio-title">GAME STUDIO · 游戏创作中心</h1><p>游戏内创作、保存与分发内容</p>';
+  const headerActions=document.createElement('div');headerActions.className='studio-header-actions';
+  const resetButton=document.createElement('button');resetButton.type='button';resetButton.className='studio-button';
+  resetButton.textContent='重置编辑区';
+  resetButton.addEventListener('click',()=>{
+    studioEditing=null;studioPendingTexture=null;studioPendingAssets={};studioTextureRemoval=false;
+    renderGameStudio();
+    studioSetStatus('编辑区已重置：表单恢复默认值，已保存的内容不会删除。');
+  });
+  const close=document.createElement('button');close.type='button';close.className='studio-close';close.textContent='关闭 · Esc';
+  close.addEventListener('click',closeGameStudio);
+  headerActions.append(resetButton,close);
+  header.append(title,headerActions);windowEl.append(header);
+
+  /* ── 主体：左侧模块导航 / 中间编辑 / 右侧预览 ── */
+  const body=document.createElement('div');body.className='studio-body';
+
+  const nav=document.createElement('nav');nav.className='studio-nav';nav.setAttribute('aria-label','创作模块');
+  const navHint=document.createElement('p');navHint.className='studio-nav-hint';navHint.textContent='选择要编辑的模块';
+  nav.append(navHint);
   const renderedGroups=new Set();
+  const addNavButton=(label,active,onClick,className)=>{
+    const button=document.createElement('button');button.type='button';
+    button.className=className||'studio-nav-item';button.textContent=label;
+    button.setAttribute('aria-selected',String(active));
+    button.addEventListener('click',onClick);
+    nav.append(button);
+  };
   for(const entry of STUDIO_MODULES){
     const group=STUDIO_MODULE_GROUPS.find(candidate=>candidate.members.includes(entry.id));
     if(group){
       if(renderedGroups.has(group.name))continue;
       renderedGroups.add(group.name);
+      const groupTitle=document.createElement('h4');groupTitle.className='studio-nav-title';groupTitle.textContent=group.name;
+      nav.append(groupTitle);
+      for(const memberId of group.members){
+        const member=STUDIO_MODULES.find(candidate=>candidate.id===memberId);
+        addNavButton(member.name,memberId===studioTab,()=>{studioTab=memberId;renderGameStudio();},'studio-nav-item studio-nav-sub');
+      }
+      continue;
     }
-    const button=document.createElement('button');button.type='button';button.className='studio-tab';
-    button.textContent=group?group.name:entry.name;
-    button.setAttribute('aria-selected',String(group?group.members.includes(studioTab):entry.id===studioTab));
-    button.addEventListener('click',()=>{
-      studioTab=group?(group.members.includes(studioTab)?studioTab:group.members[0]):entry.id;
-      renderGameStudio();
-    });nav.append(button);
+    addNavButton(entry.name,entry.id===studioTab,()=>{studioTab=entry.id;renderGameStudio();});
   }
-  windowEl.append(nav);
-  if(moduleGroup){
-    const subnav=document.createElement('nav');subnav.className='studio-subtabs';
-    subnav.setAttribute('aria-label',moduleGroup.name+'分类');
-    for(const memberId of moduleGroup.members){
-      const member=STUDIO_MODULES.find(entry=>entry.id===memberId);
-      const button=document.createElement('button');button.type='button';button.className='studio-subtab';
-      button.textContent=member.name;button.setAttribute('aria-selected',String(memberId===studioTab));
-      button.addEventListener('click',()=>{studioTab=memberId;renderGameStudio();});
-      subnav.append(button);
-    }
-    windowEl.append(subnav);
-  }
-  const content=document.createElement('div');content.className='studio-content';
-  const main=document.createElement('main');main.className='studio-main';
-  const heading=document.createElement('h2');heading.textContent=module.name;main.append(heading);
-  const desc=document.createElement('p');desc.className='studio-description';desc.textContent=module.description;main.append(desc);
+  body.append(nav);
+
+  const mainCol=document.createElement('div');mainCol.className='studio-main-col';
+  const toolbar=document.createElement('div');toolbar.className='studio-toolbar';
+  const toolbarText=document.createElement('div');toolbarText.className='studio-toolbar-text';
+  const heading=document.createElement('h2');heading.textContent=module.name;
+  const desc=document.createElement('p');desc.className='studio-toolbar-desc';desc.textContent=module.description;
+  toolbarText.append(heading,desc);
+  const toolbarActions=document.createElement('div');toolbarActions.className='studio-toolbar-actions';
   if(module.id!=='mods'){
     const manageContent=document.createElement('button');manageContent.type='button';manageContent.className='studio-button';
-    manageContent.textContent='管理 / 删除已保存内容';
+    manageContent.textContent='管理已保存内容';
     manageContent.addEventListener('click',()=>{studioTab='mods';renderGameStudio();});
-    main.append(manageContent);
+    toolbarActions.append(manageContent);
   }
+  toolbar.append(toolbarText,toolbarActions);
+  mainCol.append(toolbar);
+
+  const scroll=document.createElement('div');scroll.className='studio-scroll';
+  const main=document.createElement('main');main.className='studio-main';
+  scroll.append(main);
+  mainCol.append(scroll);
+  body.append(mainCol);
+
   if(module.id==='media'){
     renderStudioMediaSettings(main);
   }else if(module.id==='mods'){
@@ -1519,7 +1560,7 @@ function renderGameStudio(){
       field.append(input);metaForm.append(field);
     }
 
-    const saveMetadata=document.createElement('button');saveMetadata.type='submit';saveMetadata.className='studio-button';
+    const saveMetadata=document.createElement('button');saveMetadata.type='submit';saveMetadata.className='studio-button primary';
     saveMetadata.textContent='保存团队信息';metaForm.append(saveMetadata);
     metaForm.addEventListener('submit',event=>{
       event.preventDefault();
@@ -1543,7 +1584,7 @@ function renderGameStudio(){
     const note=document.createElement('p');note.className='studio-note';note.textContent='导出的 JSON MOD 包包含团队信息、内容定义和贴图；把文件交给队友后，可从这里导入。游戏内注册的方块、物品、机器和配方可直接使用。';main.append(note);
   }else{
     studioPendingTexture=null;
-    const form=document.createElement('form');form.className='studio-fields';form.addEventListener('submit',event=>{
+    const form=document.createElement('form');form.className='studio-form';form.addEventListener('submit',event=>{
       event.preventDefault();
       try{
         const data=studioFormData();
@@ -1583,48 +1624,83 @@ function renderGameStudio(){
       }
       catch(error){studioSetStatus(error.message,true);}
     });
+
+    const fieldSections=new Map();
+    const collectField=(key,element)=>{
+      const group=studioFieldGroup(key);
+      if(!fieldSections.has(group.id))fieldSections.set(group.id,{title:group.title,items:[]});
+      fieldSections.get(group.id).items.push(element);
+    };
     const editingSkill=studioEditing&&studioEditing.tab==='skills'?
       SKILLS.find(skill=>skill.id===studioEditing.id):null;
     const editingBlueprint=studioEditing&&studioEditing.tab===module.id?
       modDefinitions.studioBlueprints.find(entry=>entry.kind===module.id&&entry.id===studioEditing.id):null;
     for(const fieldDef of module.fields){
       if(module.id==='industry'&&fieldDef[0]==='uiTitle'){
-        const uiHeading=document.createElement('h3');uiHeading.className='studio-span';
-        uiHeading.textContent='机器 UI · 实际游戏面板';
         const uiNote=document.createElement('p');uiNote.className='studio-note studio-span';
-        uiNote.textContent='此处配置的是放置机器后真正打开的界面；右侧预览会随下方标题、颜色和标签变化。';
-        form.append(uiHeading,uiNote);
+        uiNote.textContent='机器 UI：下面这些字段对应放置机器后真正打开的界面，右侧预览会实时变化。';
+        collectField('uiTitle',uiNote);
       }
       if(editingSkill){
         const values={id:editingSkill.id,name:editingSkill.name,desc:editingSkill.desc,
           effect:editingSkill.effect||editingSkill.id,level:editingSkill.level,xpCost:editingSkill.xpCost,
           cost:editingSkill.cost,cd:editingSkill.cd,requires:editingSkill.requires};
         const [key,label,value,type,options]=fieldDef;
-        form.append(studioField([key,label,values[key]===undefined?value:values[key],type,options]));
+        collectField(key,studioField([key,label,values[key]===undefined?value:values[key],type,options]));
       }else if(editingBlueprint){
         const values={...editingBlueprint.definition,id:editingBlueprint.id,name:editingBlueprint.name,
           desc:editingBlueprint.description||editingBlueprint.definition.desc||''};
         const [key,label,value,type,options]=fieldDef;
         const fieldValue=values[key]===undefined?value:values[key];
-        form.append(studioField([key,label,Array.isArray(fieldValue)?fieldValue.join(','):fieldValue,type,options]));
+        collectField(key,studioField([key,label,Array.isArray(fieldValue)?fieldValue.join(','):fieldValue,type,options]));
       }else if(module.id==='character'&&fieldDef[0].startsWith('appearance_')){
         const key=fieldDef[0].slice('appearance_'.length);
         const [name,label,value,type,options]=fieldDef;
-        form.append(studioField([name,label,String(player.appearance&&player.appearance[key]||0),type,options]));
-      }else form.append(studioField(fieldDef));
+        collectField(name,studioField([name,label,String(player.appearance&&player.appearance[key]||0),type,options]));
+      }else collectField(fieldDef[0],studioField(fieldDef));
     }
+    // 按分组渲染字段
+    const fieldWrap=document.createElement('div');fieldWrap.className='studio-form-sections';
+    for(const section of fieldSections.values()){
+      const block=document.createElement('section');block.className='studio-section';
+      const sectionTitle=document.createElement('h3');sectionTitle.textContent=section.title;
+      const grid=document.createElement('div');grid.className='studio-fields';
+      grid.append(...section.items);
+      block.append(sectionTitle,grid);fieldWrap.append(block);
+    }
+    form.append(fieldWrap);
+
     if(module.id==='industry')renderStudioMachineRecipeEditor(form);
     if(module.id==='item')renderStudioRecipeIngredientEditor(form);
     if(['block','item','industry','creature'].includes(module.id))renderStudioContentAssets(form);
-    const actions=document.createElement('div');actions.className='studio-actions studio-span';
+    const actions=document.createElement('div');actions.className='studio-actions studio-sticky-actions';
     const create=document.createElement('button');create.type='submit';create.className='studio-button primary';
     create.textContent=studioEditing&&studioEditing.tab===module.id?'保存修改':
       module.mode==='blueprint'?'保存蓝图':'创建并注册内容';
     actions.append(create);
     const back=document.createElement('button');back.type='button';back.className='studio-button';
     back.textContent='返回游戏';back.addEventListener('click',closeGameStudio);actions.append(back);
-    form.append(actions);main.append(form);
-    if(module.id==='world')renderStudioWorldEditor(main);
+    const resetInline=document.createElement('button');resetInline.type='button';resetInline.className='studio-button';
+    resetInline.textContent='清空表单';
+    resetInline.addEventListener('click',()=>{
+      studioEditing=null;studioPendingTexture=null;studioPendingAssets={};studioTextureRemoval=false;
+      renderGameStudio();
+      studioSetStatus('表单已清空，可以重新填写。');
+    });
+    actions.append(resetInline);
+    form.append(actions);
+    // 地图工坊把「绘制地图」放在最前面，方便直接开始画
+    if(module.id==='world'){
+      renderStudioWorldEditor(main);
+      const quickSave=document.createElement('button');
+      quickSave.type='button';quickSave.className='studio-button primary';quickSave.textContent='保存世界';
+      quickSave.addEventListener('click',()=>{
+        if(typeof form.requestSubmit==='function')form.requestSubmit();
+        else form.dispatchEvent(new Event('submit',{cancelable:true}));
+      });
+      toolbarActions.append(quickSave);
+    }
+    main.append(form);
     form.addEventListener('input',renderStudioPreview);
     const textureInput=form.querySelector('[name="texture"]');
     if(textureInput)textureInput.addEventListener('change',async()=>{
@@ -1644,7 +1720,7 @@ function renderGameStudio(){
         renderStudioPreview();studioSetStatus('角色立绘已载入预览；保存人物外观后会应用到游戏。');
       }catch(error){delete studioPendingAssets.playerSprite;studioSetStatus(error.message,true);}
     });
-    if(module.id==='character'&&modDefinitions.assets.playerSprite){
+    if(module.id==='character'&&modDefinitions.assets.playerSprite&&spriteInput){
       const field=spriteInput.closest('.studio-field');
       const remove=document.createElement('button');remove.type='button';remove.className='studio-button';
       remove.textContent='移除已上传角色立绘';
@@ -1653,12 +1729,13 @@ function renderGameStudio(){
           studioSetStatus('角色立绘已移除，恢复程序绘制外观。');}
         catch(error){studioSetStatus(error.message,true);}
       });
-      field.append(remove);
+      if(field)field.append(remove);
     }
   }
-  content.append(main);
+
+  /* ── 右侧：预览与内容状态 ─────────────── */
   const preview=document.createElement('aside');preview.className='studio-preview';
-  preview.innerHTML='<h3>预览与内容状态</h3><div class="studio-swatch" aria-label="颜色预览"></div><p class="studio-preview-text"></p><hr style="margin:12px 0;border:0;border-top:1px solid #b08a54"><p class="studio-definition-count">'+studioEscape(studioCountDefinitions())+'</p>';
+  preview.innerHTML='<h3>预览与内容状态</h3><div class="studio-swatch" aria-label="颜色预览"></div><p class="studio-preview-text"></p><hr style="margin:12px 0;border:0;border-top:2px solid #000;box-shadow:0 1px 0 rgba(255,255,255,.12)"><p class="studio-definition-count">'+studioEscape(studioCountDefinitions())+'</p>';
   if(module.id==='industry'){
     const machinePreview=document.createElement('div');machinePreview.className='studio-machine-ui-preview';
     machinePreview.innerHTML='<strong class="studio-machine-ui-title"></strong><p class="studio-machine-ui-status"></p><p class="studio-machine-ui-input"></p><p class="studio-machine-ui-output"></p><small class="studio-machine-ui-footer"></small>';
@@ -1685,7 +1762,10 @@ function renderGameStudio(){
     const hint=document.createElement('p');hint.className='studio-note';hint.style.marginTop='12px';
     hint.textContent='蓝图将保存在本机浏览器的 MOD 内容库中；从 MOD 工坊导出 JSON 包后即可备份或分享。';preview.append(hint);
   }
-  content.append(preview);windowEl.append(content);
+  const side=document.createElement('aside');side.className='studio-side';side.append(preview);
+  body.append(side);
+  windowEl.append(body);
+
   const status=document.createElement('div');status.className='studio-status';status.setAttribute('role','status');status.setAttribute('aria-live','polite');
   status.textContent=module.mode==='blueprint'?'蓝图编辑模式 · 不会执行脚本或改变游戏运行规则。':
     module.id==='media'?'设置保存在当前浏览器 · 浏览器首次操作后启用音频。':'内容会保存到本地 MOD 库。';

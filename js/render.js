@@ -2,16 +2,21 @@
 
 /* ══════════════════════════════════════════════════════════
    渲染主循环
+   - 3D 模式：WebGL 体素引擎绘制世界 → 贴到 2D 画布 → 叠加 HUD
+   - 2.5D 模式：保留原有等距像素绘制
+   世界坐标 ↔ 屏幕坐标 的换算会自动跟随当前引擎
    ══════════════════════════════════════════════════════════ */
 const ISO_X = 0.68, ISO_Y = 0.34;
 let inventoryBackdrop = null;
 
-function worldToScreen(x,y){
+function worldToScreen(x,y,height){
+  if(window.Pixel3D && Pixel3D.active())return Pixel3D.project(x,y,height);
   const dx=x-player.x,dy=y-player.y;
   return {x:W/2+(dx-dy)*ISO_X,y:H/2+(dx+dy)*ISO_Y};
 }
 
 function screenToWorld(x,y){
+  if(window.Pixel3D && Pixel3D.active())return Pixel3D.pick(x,y);
   const horizontal=(x-W/2)/ISO_X,vertical=(y-H/2)/ISO_Y;
   return {x:player.x+(horizontal+vertical)/2,y:player.y+(vertical-horizontal)/2};
 }
@@ -65,6 +70,10 @@ function drawIsoTile(tx,ty,shakeX,shakeY){
   ctx.restore();
 }
 
+function is3DView(){
+  return !!(window.Pixel3D && Pixel3D.active() && panel!=='title');
+}
+
 function render(){
   if(panel!=='inventory'){
     inventoryBackdrop=null;
@@ -78,7 +87,46 @@ function render(){
   }else{
     inventoryBackdrop=null;
   }
-  updateWorldChunks();
+
+  // 两种引擎都需要随玩家位置装载/卸载区块（实体生成也依赖它）
+  if(G&&!G.gameOver)updateWorldChunks();
+
+  let rendered3D=false;
+  if(is3DView()){
+    try{
+      rendered3D=Pixel3D.render()===true;
+    }catch(error){
+      console.error('[Pixel Survival] 3D 渲染异常，本次改用 2.5D 绘制',error);
+      rendered3D=false;
+    }
+  }
+
+  if(rendered3D){
+    ctx.imageSmoothingEnabled=false;
+    ctx.drawImage(Pixel3D.canvas(),0,0,W,H);
+    drawWeatherOverlay();
+    drawScreenFx();
+    drawCombatFx();
+    if(window.PixelSurvivalAnimations)PixelSurvivalAnimations.draw(ctx,W,H,G,player);
+    drawWorldActionHint();
+    drawCrosshair();
+    drawHudAndPanels();
+    drawTooltip();
+    return;
+  }
+
+  renderWorld2D();
+  drawScreenFx();
+  drawCombatFx();
+  if(window.PixelSurvivalAnimations)PixelSurvivalAnimations.draw(ctx,W,H,G,player);
+  drawWorldActionHint();
+  drawCrosshair();
+  drawHudAndPanels();
+  drawTooltip();
+}
+
+/* ── 2.5D 世界 ────────────────────────────────────── */
+function renderWorld2D(){
   const sh = shake;
   const shakeX=sh>0.1?rnd(-sh,sh):0,shakeY=sh>0.1?rnd(-sh,sh):0;
   ctx.fillStyle=G.inCave?'#302e2c':'#304a32';ctx.fillRect(0,0,W,H);
@@ -201,11 +249,129 @@ function render(){
   }
   ctx.globalAlpha = 1;
 
-  // 光照
+  // 光照 / 天气
   drawLighting();
   drawWeatherOverlay();
   drawDistanceFog();
+}
 
+/* ── 光影氛围：日光暖色 / 夜晚冷色 + 暗角 ─────────── */
+/* 第一人称洞穴：头顶的岩顶 + 钟乳石 */
+function drawCaveCeiling(){
+  const top = Math.round(H * 0.2);
+  ctx.beginPath();
+  ctx.moveTo(0, 0); ctx.lineTo(W, 0); ctx.lineTo(W, top);
+  for (let x = W; x >= 0; x -= 12){
+    ctx.lineTo(x, top + Math.sin(x * 0.07) * 5 + Math.sin(x * 0.19) * 3);
+  }
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(9,8,7,0.94)';
+  ctx.fill();
+  for (let i = 0; i < 9; i++){
+    const x = 20 + i * (W - 40) / 8;
+    const h = 8 + (i % 3) * 7;
+    ctx.beginPath();
+    ctx.moveTo(x - 5, top - 2); ctx.lineTo(x + 5, top - 2); ctx.lineTo(x, top + h);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(13,12,10,0.95)';
+    ctx.fill();
+  }
+}
+
+function drawLightGrade(){
+  if(!G)return;
+  const day = 1 - clamp(G.darkness, 0, 1);
+  if (day > 0.02){
+    ctx.fillStyle = 'rgba(255,206,140,' + (0.06 * day) + ')';
+    ctx.fillRect(0, 0, W, H);
+  }
+  if (day < 0.98){
+    ctx.fillStyle = 'rgba(80,110,190,' + (0.12 * (1 - day)) + ')';
+    ctx.fillRect(0, 0, W, H);
+  }
+  // 血月：整体压一层暗红
+  if (G.bloodMoon){
+    ctx.fillStyle = 'rgba(172,28,44,0.14)';
+    ctx.fillRect(0, 0, W, H);
+  }
+  if (!lightGradeCache || lightGradeCache.width !== W){
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const g = cv.getContext('2d');
+    const gradient = g.createRadialGradient(W / 2, H / 2, H * 0.38, W / 2, H / 2, H * 0.92);
+    gradient.addColorStop(0, 'rgba(0,0,0,0)');
+    gradient.addColorStop(1, 'rgba(0,0,0,0.30)');
+    g.fillStyle = gradient;
+    g.fillRect(0, 0, W, H);
+    lightGradeCache = cv;
+  }
+  ctx.drawImage(lightGradeCache, 0, 0, W, H);
+  const inCave = clamp(G.darkness, 0, 1);
+  if (inCave > 0.02){
+    ctx.fillStyle = 'rgba(6,10,22,' + (0.22 * inCave) + ')';
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+let lightGradeCache = null;
+
+/* ── 屏幕叠加效果（两种引擎共用） ─────────────────── */
+function mobKind(enemy){
+  if (enemy.type === 'bloodKnight') return 'bloodKnight';
+  if (enemy.type === 'creeper') return 'creeper';
+  if (enemy.type === 'caveWarden') return 'skeleton';
+  if (enemy.fast) return 'spider';
+  if (enemy.type === 'spitter') return 'creeper';
+  return 'zombie';
+}
+/* 怪物：用 MC 皮肤的 UV 部件（头/身/臂/腿）拼出来 */
+function drawMobSprites(){
+  if (!window.MCTextures || !MCTextures.mobSprite || typeof worldToScreen !== 'function') return false;
+  let drew = 0;
+  for (const enemy of enemies){
+    if (!enemy || enemy.dead) continue;
+    const kind = mobKind(enemy);
+    let head = MCTextures.mobSprite(kind, 'head');
+    let body = MCTextures.mobSprite(kind, 'body');
+    let arm = MCTextures.mobSprite(kind, 'arm'), leg = MCTextures.mobSprite(kind, 'leg');
+    if (!head || !head.complete){ head = MCTextures.mobSprite('zombie','head'); body = MCTextures.mobSprite('zombie','body'); arm = MCTextures.mobSprite('zombie','arm'); leg = MCTextures.mobSprite('zombie','leg'); }
+    if (!head || !head.complete || !head.naturalWidth) continue;
+    if (!body || !body.complete || !arm || !arm.complete || !leg || !leg.complete) continue;
+    const pos = worldToScreen(enemy.x, enemy.y);
+    if (pos.x < -40 || pos.x > W + 40 || pos.y < -70 || pos.y > H + 40) continue;
+    // 透视缩放：离得越近越大（原来是固定尺寸，靠近时显得越来越小）
+    const baseSize = enemy.boss ? 15 : enemy.fast ? 9 : 11;
+    const distTiles = Math.hypot(enemy.x - player.x, enemy.y - player.y) / TILE;
+    const distScale = Math.max(0.5, Math.min(2.4, 3.6 / Math.max(1.2, distTiles)));
+    const s = baseSize * distScale;
+    const x = pos.x - s / 2, y = pos.y + 1;
+    const flash = enemy.hitFlash > 0;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(leg, x + s * 0.14, y - s * 0.95, s * 0.36, s * 0.95);
+    ctx.drawImage(leg, x + s * 0.50, y - s * 0.95, s * 0.36, s * 0.95);
+    ctx.drawImage(body, x, y - s * 1.95, s, s * 1.05);
+    ctx.drawImage(arm, x - s * 0.22, y - s * 1.9, s * 0.26, s * 0.95);
+    ctx.drawImage(arm, x + s * 0.96, y - s * 1.9, s * 0.26, s * 0.95);
+    ctx.drawImage(head, x + s * 0.08, y - s * 2.75, s * 0.84, s * 0.84);
+    if (flash){
+      ctx.globalAlpha = 0.45;
+      ctx.fillStyle = '#ff8080';
+      ctx.fillRect(x - s * 0.3, y - s * 2.9, s * 1.6, s * 2.95);
+    }
+    ctx.restore();
+    drew++;
+  }
+  window.MOB_SPRITES_OK = drew > 0;
+  return drew > 0;
+}
+
+function drawScreenFx(){
+  // 任何一层特效出错都不能拖垮 HUD：逐层 try/catch
+  try { if (G && G.inCave && document.pointerLockElement === canvas) drawCaveCeiling(); } catch (error) { console.error('[FX] 洞穴岩顶', error); }
+  try { drawMobSprites(); } catch (error) { console.error('[FX] 怪物精灵', error); }
+  try { drawLightGrade(); } catch (error) { console.error('[FX] 光影', error); }
+  const sh = shake;
+  const shakeX=sh>0.3?rnd(-sh,sh):0,shakeY=sh>0.3?rnd(-sh,sh):0;
   // 受伤红晕
   if (player.hurtFlash > 0){
     ctx.fillStyle = 'rgba(190,20,20,' + (player.hurtFlash * 0.5) + ')';
@@ -215,13 +381,12 @@ function render(){
   const hpRatio = player.hp / player.maxHp;
   if (hpRatio < 0.3 && !G.gameOver){
     const pulse = 0.12 + 0.1 * Math.sin(performance.now() / 220);
-    const g = ctx.createRadialGradient(W/2, H/2, H*0.32, W/2, H/2, H*0.78);
-    g.addColorStop(0, 'rgba(180,20,20,0)');
-    g.addColorStop(1, 'rgba(180,20,20,' + pulse + ')');
-    ctx.fillStyle = g;
+    const gradient = ctx.createRadialGradient(W/2, H/2, H*0.32, W/2, H/2, H*0.78);
+    gradient.addColorStop(0, 'rgba(180,20,20,0)');
+    gradient.addColorStop(1, 'rgba(180,20,20,' + pulse + ')');
+    ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, W, H);
   }
-
   // 浮动文字
   ctx.font = 'bold 8px '+UI_FONT;
   ctx.textAlign = 'center';
@@ -235,21 +400,18 @@ function render(){
   }
   ctx.globalAlpha = 1;
   ctx.textAlign = 'left';
+}
 
-  drawCombatFx();
-  if(window.PixelSurvivalAnimations)PixelSurvivalAnimations.draw(ctx,W,H,G,player);
-  drawWorldActionHint();
-  // 准星
-  drawCrosshair();
-
-  // HUD
+/* ── HUD 与面板（两种引擎共用） ───────────────────── */
+function drawHudAndPanels(){
   uiButtons = [];
   drawStatusBars();
   drawCompactHud();
   drawSkillHud();
   drawTutorial();
   if(showMap) drawMinimap();
-  drawHotbar();
+  if(panel!=='inventory'&&panel!=='craft') drawHotbar();
+  if(window.Pixel3D && typeof Pixel3D.firstPerson==='function' && Pixel3D.firstPerson()) drawFirstPersonHand();
   drawHints();
   drawToast();
 
@@ -276,16 +438,15 @@ function render(){
   if (panel === 'guide'){ uiButtons=[]; drawGuidePanel(); }
   if (panel === 'machine') drawMachinePanel();
   if (panel === 'trade') drawTradePanel();
+  if (panel === 'settings'){ uiButtons=[]; drawSettingsPanel(); }
 
   if (G.gameOver) drawGameOver();
   if (panel === 'title') drawMainMenu();
-
-  // tooltip 最上层
-  drawTooltip();
 }
 
 function drawDistanceFog(){
-  const level=window.PixelSurvivalAudio?PixelSurvivalAudio.getSettings().fog:0;
+  const settings=window.PixelGfx?PixelGfx.get().fog:(window.PixelSurvivalAudio?PixelSurvivalAudio.getSettings().fog:0);
+  const level=settings||0;
   if(!level)return;
   const maximum=[0,0.12,0.24,0.38][level]||0;
   const color=G.inCave?'72,70,78':'111,145,124';
@@ -299,7 +460,8 @@ function drawDistanceFog(){
 function drawWeatherOverlay(){
   if(G.weather==='rain'||G.weather==='blizzard'){
     const snow=G.weather==='blizzard';
-    const count=snow?30:42;
+    const density=window.PixelGfx?Math.max(0.4,PixelGfx.particleFactor()):1;
+    const count=Math.round((snow?30:42)*density);
     for(let i=0;i<count;i++){
       const x=(i*67+Math.floor(G.time*(snow?13:90)))%W;
       const y=(i*43+Math.floor(G.time*(snow?22:150)))%H;
@@ -323,7 +485,7 @@ function drawWeatherOverlay(){
 }
 
 /* ══════════════════════════════════════════════════════════
-   光照
+   光照（2.5D）
    ══════════════════════════════════════════════════════════ */
 function drawLighting(){
   const d = G.inCave ? Math.max(G.darkness, 0.72) : G.darkness;

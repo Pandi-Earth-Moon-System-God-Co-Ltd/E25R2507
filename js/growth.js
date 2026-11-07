@@ -80,7 +80,7 @@ function drawGrowthHud(){
   }
 }
 function drawGrowthPanel(){
-  ctx.fillStyle='rgba(18,11,6,0.85)'; ctx.fillRect(0,0,W,H);
+  drawMcBackdrop(0.64);
   uiPanel(46, 25, 388, 220, { title:'成长与增益  Lv.'+G.growth.level, accent:PAL.xp });
   txt('经验 '+G.growth.xp+'/'+xpNeeded(G.growth.level)+'   可用成长点 '+G.growth.points+'   B / Esc 关闭', 58, 52, { size:7, bold:true, color:'#8a6a3a' });
   GROWTH.forEach((b, i)=>{

@@ -36,11 +36,12 @@ function drawMainMenu(){
 
   const x=246,y=20,width=216,height=230;
   uiPanel(x-3,y-3,width+6,234,{});
-  uiPanel(x,y,width,228,{fill:'#e8ddb9',woodMid:'#456b43'});
+  uiPanel(x,y,width,228,{});
   txt(gameLanguage==='en'?'MAIN MENU':gameLanguage==='ja'?'メインメニュー':'主 菜 单',x+width/2,y+11,
-    {size:10,bold:true,color:'#426044',align:'center'});
-  R(x+12,y+29,width-24,1,'#b08a54');
-  const buttonX=x+20,buttonWidth=176,buttonHeight=20,gap=5;
+    {size:10,bold:true,color:'#3f3f3f',align:'center'});
+  R(x+12,y+29,width-24,1,'#8b8b8b');
+  R(x+12,y+30,width-24,1,'rgba(255,255,255,0.55)');
+  const buttonX=x+20,buttonWidth=176,buttonHeight=18,gap=4;
   const menuItems=[
     [titleMenuHasSave?menuText('继续旅程','Continue Journey','旅を続ける'):menuText('开始生存','Start Survival','サバイバル開始'),
       'green',()=>{if(titleMenuHasSave){panel=null;clearInput();}else startNewGameFromMenu();}],
@@ -48,6 +49,7 @@ function drawMainMenu(){
     [menuText('存档 / 读档','Saves / Load','セーブ / ロード'),'blue',()=>openSavePanel('title')],
     [menuText('帮助中心','Help','ヘルプ'),'wood',()=>openGuidePanel('title')],
     [menuText('创作中心','Game Studio','ゲームスタジオ'),'gold',openGameStudio],
+    [menuText('画面与性能','Video & Performance','画質と性能'),'blue',()=>openSettingsPanel('title')],
     [menuText('语言 / Language: ','Language: ','言語: ')+(gameLanguage==='zh-CN'?'简体中文':gameLanguage==='ja'?'日本語':'English'),
       'blue',toggleGameLanguage],
   ];
@@ -56,9 +58,9 @@ function drawMainMenu(){
     uiButton(buttonX,buttonY,buttonWidth,buttonHeight,label,{kind});
     uiButtons.push({x:buttonX,y:buttonY,w:buttonWidth,h:buttonHeight,fn:action});
   });
-  R(x+12,y+196,width-24,1,'#b08a54');
+  R(x+12,y+196,width-24,1,'#8b8b8b');
   txt(gameLanguage==='en'?'Local saves · No account required':gameLanguage==='ja'?'ローカルセーブ · アカウント不要':'本地存档 · 无需联网',x+width/2,y+204,
-    {size:6,color:'#756449',align:'center'});
+    {size:6,color:'#555555',align:'center'});
 }
 
 function menuText(chinese,english,japanese){
@@ -115,7 +117,7 @@ function startNewGameFromMenu(){
    暂停面板
    ══════════════════════════════════════════════════════════ */
 function drawPausePanel(){
-  ctx.fillStyle='rgba(18,11,6,0.78)'; ctx.fillRect(0,0,W,H);
+  drawMcBackdrop(0.6);
   const PW=260, PH=250, px=(W-PW)/2, py=(H-PH)/2;
   uiPanel(px-3, py-3, PW+6, PH+6, {});
   uiPanel(px, py, PW, PH, { title:'暂 停' });
@@ -128,29 +130,31 @@ function drawPausePanel(){
   ];
   let ry=py+42;
   for (const [k, v] of rows){
-    txt(k, px+24, ry, { size:8, bold:true, color:'#8a7a5a' });
+    txt(k, px+24, ry, { size:8, bold:true, color:'#555555' });
     txt(v, px+PW-24, ry, { size:8, bold:true, color:PAL.ink, align:'right' });
     ry+=15;
   }
-  const cbx=W/2-48, cby=py+108;
+  const cbx=W/2-48, cby=py+116;
   uiButton(cbx, cby, 96, 14, '人物外观  O', { kind:'blue' });
   uiButtons.push({x:cbx, y:cby, w:96, h:14, fn:() => { characterReturnPanel='pause'; panel='character'; }});
 
-  const studioX=W/2-55,studioY=py+128;
-  uiButton(studioX,studioY,110,15,'Game Studio',{kind:'gold'});
+  const studioX=W/2-55,studioY=py+136;
+  uiButton(studioX,studioY,110,15,'创作工坊  F2',{kind:'gold'});
   uiButtons.push({x:studioX,y:studioY,w:110,h:15,fn:openGameStudio});
 
   const bw=92, bh=22, gap=12;
   const bx1=W/2-bw-gap/2, bx2=W/2+gap/2, by=py+PH-34;
   uiButton(bx1, by, bw, bh, '继续游戏', { kind:'green' });
-  uiButtons.push({ x:bx1, y:by, w:bw, h:bh, fn:() => { panel=null; } });
+  uiButtons.push({ x:bx1, y:by, w:bw, h:bh, fn:() => { panel=null; if(typeof syncPointerLock==='function')syncPointerLock(); } });
   uiButton(bx2, by, bw, bh, '重新开始', { kind:'red' });
   uiButtons.push({ x:bx2, y:by, w:bw, h:bh, fn:() => requestRestart() });
 
   txt('自动保存 · K 快速保存 · 本地存档不会上传', W/2, py+PH-48, { size:7, bold:true, color:'#8a7a5a', align:'center' });
-  const sbx=W/2-45, sby=py+PH-90;
-  uiButton(sbx, sby, 90, 16, '存档管理 / 读取', { kind:'wood' });
-  uiButtons.push({x:sbx,y:sby,w:90,h:16,fn:()=>openSavePanel('pause')});
+  const sbx=W/2-88, sby=py+PH-90;
+  uiButton(sbx, sby, 84, 16, '存档管理 / 读取', { kind:'wood' });
+  uiButtons.push({x:sbx,y:sby,w:84,h:16,fn:()=>openSavePanel('pause')});
+  uiButton(sbx+90, sby, 84, 16, '画面设置  L', { kind:'blue' });
+  uiButtons.push({x:sbx+90,y:sby,w:84,h:16,fn:()=>openSettingsPanel('pause')});
   const menuX=W/2-45,menuY=py+PH-69;
   uiButton(menuX,menuY,90,16,'返回主菜单',{kind:'blue'});
   uiButtons.push({x:menuX,y:menuY,w:90,h:16,fn:()=>{
@@ -159,7 +163,7 @@ function drawPausePanel(){
 }
 
 function drawCharacterPanel(){
-  ctx.fillStyle='rgba(18,11,6,0.84)'; ctx.fillRect(0,0,W,H);
+  drawMcBackdrop(0.62);
   const x=24, y=18, w=432, h=234;
   uiPanel(x-3, y-3, w+6, h+6, {});
   uiPanel(x, y, w, h, { title:'人物外观', fill:PAL.paper });
@@ -192,7 +196,7 @@ function drawCharacterPanel(){
   rows.forEach(([key,label,options], index)=>{
     const rowY=y+48+index*16;
     const current=player.appearance[key];
-    txt(label, x+154, rowY+4, { size:7, bold:true, color:'#e5d9b8' });
+    txt(label, x+154, rowY+4, { size:7, bold:true, color:'#3f3f3f' });
     const bx=x+w-133;
     uiButton(bx, rowY, 14, 14, '‹', { kind:'wood', size:8 });
     uiButton(bx+84, rowY, 14, 14, '›', { kind:'wood', size:8 });
@@ -211,7 +215,7 @@ function cyclePlayerAppearance(key,step,count){
 }
 
 function drawSavePanel(){
-  ctx.fillStyle='rgba(18,11,6,0.8)'; ctx.fillRect(0,0,W,H);
+  drawMcBackdrop(0.62);
   const pw=370, ph=238, px=(W-pw)/2, py=(H-ph)/2;
   uiPanel(px-3, py-3, pw+6, ph+6, {});
   uiPanel(px, py, pw, ph, { title:menuText('本地存档管理','Save Management','セーブ管理') });

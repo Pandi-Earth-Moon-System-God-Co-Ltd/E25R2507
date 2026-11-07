@@ -35,8 +35,13 @@ function generateCustomWorld(mapDefinition){
       (tile.id==='desert'&&detail>0.96)||(tile.id==='snow'&&detail>0.94)){
       const oreRoll=hash2(tx*19+seed,ty*53+seed);
       const ore=tile.id==='cave'&&oreRoll>0.985?'crystal':
+        tile.id==='cave'&&oreRoll>0.97?'goldOre':
+        tile.id==='cave'&&oreRoll>0.95?'silverOre':
         tile.id==='cave'&&oreRoll>0.93?'ironOre':
-        tile.id==='cave'&&oreRoll>0.86?'copperOre':null;
+        tile.id==='cave'&&oreRoll>0.91?'tinOre':
+        tile.id==='cave'&&oreRoll>0.89?'leadOre':
+        tile.id==='cave'&&oreRoll>0.86?'copperOre':
+        tile.id==='cave'&&oreRoll>0.76?'coal':null;
       rocks.push({x,y,hp:ore==='crystal'?7:ore?5:4,r:7,shake:0,ore});
     }else if(tile.id==='grass'&&detail>0.985){
       bushes.push({x,y,hp:2,r:5,shake:0,berries:true});
@@ -105,9 +110,10 @@ function getWorldTerrainIndex(tx,ty,layer=G&&G.worldLayer||'surface'){
     const geology=noise2(tx+seed*0.031,ty-seed*0.017,11);
     return geology>0.76?2:3;
   }
-  const elevation=noise2(tx+seed*0.013,ty-seed*0.007,38);
-  const moisture=noise2(tx+31+seed*0.021,ty-17,26);
-  const temperature=noise2(tx-23,ty+seed*0.009,43);
+  const detail=noise2(tx*2.3+seed*0.05,ty*2.3-seed*0.04,6)-0.5;
+  const elevation=noise2(tx+seed*0.013,ty-seed*0.007,38)+detail*0.07;
+  const moisture=noise2(tx+31+seed*0.021,ty-17,26)-detail*0.06;
+  const temperature=noise2(tx-23,ty+seed*0.009,43)+detail*0.08;
   const riverY=Math.round(Math.sin(tx*0.055+seed)*18+noise2(tx+seed,seed,29)*12);
   const riverBand=Math.abs((((ty-riverY+40)%80)+80)%80-40);
   if(riverBand<=1&&Math.abs(tx)>4)return 4;
@@ -127,7 +133,12 @@ function generateInfiniteChunk(cx,cy,layer){
     const x=tx*TILE+TILE/2,y=ty*TILE+TILE/2;
     if(layer==='surface'){
       if(terrain===1&&detail<0.22)treesInChunk.push({x,y,hp:3,r:6,shake:0,sway:detail*6.28});
-      else if(terrain===2&&detail<0.18)rocksInChunk.push({x,y,hp:4,r:7,shake:0,ore:null});
+      else if(terrain===2&&detail<0.18)rocksInChunk.push({x,y,hp:4,r:7,shake:0,ore:detail<0.032?'coal':null});
+      // 洞穴：额外石笋/岩柱，让空洞有参照物（配合地面高度差形成层次）
+      if(layer==='cave'&&detail<0.06&&Math.random()<0.35){
+        const sx=x+rnd(-6,6), sy=y+rnd(-6,6);
+        rocksInChunk.push({x:sx,y:sy,hp:3,r:5,shake:0,ore:null,spike:true});
+      }
       else if(terrain===4)continue;
       else if((terrain===0||terrain===1)&&detail>0.985)bushesInChunk.push({x,y,hp:2,r:5,shake:0,berries:true});
       const landmark=hash2(tx+seed*13,ty-seed*7);
@@ -138,11 +149,18 @@ function generateInfiniteChunk(cx,cy,layer){
       if(Math.hypot(x-8,y-8)<72)continue;
     }else if(terrain===2&&detail<0.26){
       const vein=hash2(tx*43+seed,ty*71-seed);
-      const ore=vein>0.994?'crystal':Math.abs(ty)>80&&vein>0.72?'ironOre':vein>0.8?'copperOre':null;
+      const ore=vein>0.992?'crystal'
+        :vein>0.955?'goldOre'
+        :vein>0.918?'silverOre'
+        :Math.abs(ty)>80&&vein>0.72?'ironOre'
+        :vein>0.88?'tinOre'
+        :vein>0.845?'leadOre'
+        :vein>0.8?'copperOre'
+        :vein>0.62?'coal':null;
       rocksInChunk.push({x,y,hp:ore==='crystal'?7:ore?5:4,r:7,shake:0,ore});
     }
   }
-  if(hash2(cx+seed,cy-seed)>0.84){
+  if(false){
     const tx=xStart+Math.floor(hash2(cx*7+seed,cy*11)*CHUNK_TILES);
     const ty=yStart+Math.floor(hash2(cx*13-seed,cy*3)*CHUNK_TILES);
     entrancesInChunk.push({x:tx*TILE+TILE/2,y:ty*TILE+TILE/2});
@@ -228,18 +246,37 @@ function generateWorld(mapDefinition=null,worldSeed=137){
   worldTerrain=[];
 }
 
+/* 洞穴里随时可以回到地表（防止卡在地下出不来） */
+function returnToSurface(){
+  if(!G||!G.inCave)return false;
+  G.worldLayer='surface';
+  G.inCave=false;
+  const entry=caveEntrances[0];
+  player.x=entry?entry.x:MAP_W*TILE/2;
+  player.y=entry?entry.y+TILE*2:MAP_H*TILE/2;
+  player.vx=0;player.vy=0;
+  updateWorldChunks();
+  if(window.PixelSurvivalAudio)PixelSurvivalAudio.play('caveOut');
+  showToast('已返回地表 · 下次靠近洞穴入口（按 F 或右键）可以再下去','#a8e0ff');
+  return true;
+}
+
 function tryUseCaveEntrance(){
+  // 地下洞穴已移除：所有矿物都在主世界生成
+  if (true){ showToast('地下洞穴已移除 · 矿物全部在主世界生成', '#a8e0ff'); return false; }
+
   if(panel||G.gameOver)return false;
   if(!G.mapId){
     const entrance=caveEntrances
       .map(entry=>({entry,distance:Math.hypot(player.x-entry.x,player.y-entry.y)}))
       .sort((a,b)=>a.distance-b.distance)[0];
-    if(!entrance||entrance.distance>TILE*2.5)return false;
+    if(!entrance||entrance.distance>TILE*4)return false;
     G.worldLayer=G.inCave?'surface':'cave';
     G.inCave=G.worldLayer==='cave';
     player.x=entrance.entry.x;player.y=entrance.entry.y;
     player.vx=0;player.vy=0;
     updateWorldChunks();
+    if(window.PixelSurvivalAudio)PixelSurvivalAudio.play(G.inCave?'cave':'caveOut');
     showToast(G.inCave?'进入地下洞穴 · 留意黑暗中的威胁':'返回地表 · 整理收集到的矿物',
       G.inCave?'#9cc8a0':'#c8e0a0');
     if(window.PixelSurvivalAudio)PixelSurvivalAudio.play('cave');
@@ -249,7 +286,7 @@ function tryUseCaveEntrance(){
   const entrance=caveEntrances
     .map(entry=>({entry,distance:Math.hypot(player.x-entry.x,player.y-entranceY)}))
     .sort((a,b)=>a.distance-b.distance)[0];
-  if(!entrance||entrance.distance>TILE*2.5)return false;
+  if(!entrance||entrance.distance>TILE*4)return false;
   G.worldLayer=G.inCave?'surface':'cave';
   G.inCave=G.worldLayer==='cave';
   player.x=entrance.entry.x;
@@ -356,12 +393,12 @@ function reset(mapDefinition=null){
 
   const rules=mapDefinition&&mapDefinition.rules||{};
   inv = { berry: rules.startingFood===undefined?3:rules.startingFood,
-    emptyBottle:rules.startingWater===undefined?2:rules.startingWater,coin:12,smallPotion:2,pistol:1,ammo:24,
+    emptyBottle:rules.startingWater===undefined?2:rules.startingWater,coin:12,smallPotion:2,
     carrotSeed:2,wheatSeed:2 };
   inventoryOrder = Object.keys(inv).filter(id=>inv[id]>0);
   hotbar = Array(HOTBAR_SIZE).fill(null);
-  hotbar[0] = 'berry'; hotbar[1] = 'emptyBottle'; hotbar[2] = 'smallPotion'; hotbar[3] = 'pistol';
-  hotbar[4] = 'carrotSeed'; hotbar[5] = 'wheatSeed';
+  hotbar[0] = 'berry'; hotbar[1] = 'emptyBottle'; hotbar[2] = 'smallPotion';
+  hotbar[3] = 'carrotSeed'; hotbar[4] = 'wheatSeed';
   player = {
     x: mapDefinition?((mapDefinition.spawn.x+0.5)*TILE):TILE/2,
     y: mapDefinition?((mapDefinition.spawn.y+0.5)*TILE):TILE/2,
@@ -380,6 +417,9 @@ function reset(mapDefinition=null){
     sprinting: false, appearance:newPlayerAppearance(),
   };
   cam = { x: player.x - W/2, y: player.y - H/2 };
+  bagSlots = Array(BAG_SLOTS).fill(null);
+  syncBagSlots();
+  if(typeof resetCraftingState==='function')resetCraftingState();
   G = {
     time: 0, dayTime: 0.02, day: 1, dayLength:rules.dayLength||600,worldSeed,
     worldLayer:mapDefinition&&player.y>=CAVE_LINE?'cave':'surface',
@@ -407,6 +447,7 @@ function reset(mapDefinition=null){
   inventoryDragSource = null;
   toast = { text:'', t:0, color:'#ffe680' };
   recalcEquipment();
+  if(window.Pixel3D&&typeof Pixel3D.invalidate==='function')Pixel3D.invalidate();
   showToast('收集食物与清水维持状态 · 对准河流右键取水 · J查看帮助', '#a8e0ff');
 }
 
@@ -418,10 +459,11 @@ function recalcEquipment(){
   for (const id in inv){
     if (inv[id] <= 0) continue;
     const it = ITEMS[id];
+    if (!it) continue;   // 存档里可能有已被删除的自定义物品，直接跳过
     if (it.kind === 'weapon' && !it.firearm && (!bestW || it.dmg > ITEMS[bestW].dmg)) bestW = id;
   }
   const selected = hotbar[selectedHotbar];
-  if (selected && inv[selected] > 0){
+  if (selected && inv[selected] > 0 && ITEMS[selected]){
     if (ITEMS[selected].kind === 'weapon') bestW = selected;
   }
   for(const slot of equipmentSlots){
@@ -452,6 +494,24 @@ function showToast(text, color){
   toast.t = 2.2;
 }
 
+/* 背包固定槽位与 inv 保持同步：清掉失效的、补上新增的 */
+function syncBagSlots(){
+  if(!Array.isArray(bagSlots)||bagSlots.length!==BAG_SLOTS)bagSlots=Array(BAG_SLOTS).fill(null);
+  const placed=new Set();
+  for(let i=0;i<BAG_SLOTS;i++){
+    const id=bagSlots[i];
+    if(!id||!(inv[id]>0)||hotbar.includes(id)||placed.has(id)){bagSlots[i]=null;continue;}
+    placed.add(id);
+  }
+  for(const id in inv){
+    if(!(inv[id]>0)||placed.has(id)||hotbar.includes(id))continue;
+    const empty=bagSlots.indexOf(null);
+    if(empty<0)break;
+    bagSlots[empty]=id;
+    placed.add(id);
+  }
+}
+
 function addItem(id, n){
   n = n || 1;
   if (id === 'wood') G.tutorialWood += n;
@@ -462,6 +522,7 @@ function addItem(id, n){
     if (emptySlot >= 0) hotbar[emptySlot] = id;
   }
   G.gathered += n;
+  syncBagSlots();
   recalcEquipment();
   if(window.PixelSurvivalModAPI) PixelSurvivalModAPI.emit('itemAdded',{id,n,total:inv[id]});
 }
@@ -473,7 +534,10 @@ function takeItem(id, n){
     delete inv[id];
     inventoryOrder = inventoryOrder.filter(itemId => itemId !== id);
     clearHotbarItem(id);
+    const slot = bagSlots.indexOf(id);
+    if (slot >= 0) bagSlots[slot] = null;
   }
+  syncBagSlots();
   recalcEquipment();
   return true;
 }
@@ -482,4 +546,5 @@ function clearHotbarItem(id){
   for (let i = 0; i < hotbar.length; i++){
     if (hotbar[i] === id) hotbar[i] = null;
   }
+  syncBagSlots();
 }
