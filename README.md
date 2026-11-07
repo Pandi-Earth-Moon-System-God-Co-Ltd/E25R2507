@@ -3,15 +3,6 @@
 这是由五人团队共同开发的浏览器像素生存游戏，核心入口为 [index.html](./index.html)。
 团队共同设计并制作了一款融合“探索 + 生存 + 生产 + 扩展”的 3D 体素生存游戏，并将内容创作能力（地图、道具、流程、技能、机器、Mod）整合进同一套游戏框架中；画面可以在 3D 体素引擎与 2.5D 像素引擎之间切换。
 
-![3D 体素画面](./docs/screenshot-3d.jpg)
-
-![背包界面（《我的世界》原版布局）](./docs/ui-inventory.png)
-
-![工作台 3×3 合成与配方手册](./docs/ui-craft.png)
-
-![画面与性能设置](./docs/screenshot-settings.png)
-
-![创作工坊（全新编辑器）](./docs/ui-studio.png)
 
 ## 1. 项目定位
 
@@ -117,7 +108,6 @@
 - 第三人称树冠挡住镜头时自动半透明淡出；第一人称不做淡出，靠近树木也是实心
 - 按 `F5` 在第三人称 / 第一人称之间切换：第一人称会锁定鼠标，移动鼠标转动视角，`Esc` 释放鼠标
 - 按 `L`（或主菜单 / 暂停菜单的“画面与性能”）打开设置面板
-- 3D 地形图集使用 `2233/` 材质包里的方块贴图（草地、泥土、石头、沙子、雪、水、原木、树叶、木板、金属、荧晶等）
 - 说明：Game Studio 上传的自定义贴图会覆盖物品图标；3D 模组方块仍以物品配色区分
 
 ### 4.10 材质包与界面风格
@@ -129,7 +119,6 @@
 - 鼠标悬停在物品上会显示《我的世界》式提示框：物品名称、属性、说明与操作提示
 - 面板、按钮、物品槽、状态条、菜单背景统一为《我的世界》配色（浅灰容器 + 黑色描边 + 深色按钮）
 - 贴图以 data URL 内嵌在 [js/mc-textures.js](./js/mc-textures.js)，因此直接双击 `index.html`（file://）也能显示材质包
-- 游戏音效从 `2233/` 的 GregTech 音效里提取（攻击、采集、进食、合成、机器、洞穴等），内嵌在 [js/mc-sounds.js](./js/mc-sounds.js)
 - 材质包内容有更新时，运行 `python tools/build-mc-textures.py` 重新生成贴图文件
 
 ## 5. 项目结构说明
@@ -137,13 +126,12 @@
 | 文件/目录 | 说明 |
 |---|---|
 | [index.html](./index.html) | 游戏入口文件，负责加载所有脚本与界面 |
-| [css/](./css/) | 游戏样式与界面视觉设计（Game Studio 为《我的世界》深色界面） |
+| [css/](./css/) | 游戏样式与界面视觉设计 |
 | [js/](./js/) | 核心逻辑模块，按功能拆分 |
 | [js/editor.js](./js/editor.js) | 创作工坊（全新编辑器） |
 | [js/mc-sounds.js](./js/mc-sounds.js) | 材质包音效（自动生成） |
 | [assets/](./assets/) | 音乐、动画、环境效果等资源 |
-| [2233/](./2233/) | 《我的世界》材质包（物品 / 方块 / GUI 贴图来源） |
-| [tools/](./tools/) | 材质打包脚本与无浏览器冒烟测试 |
+| [tools/](./tools/) | 材质打包脚本 |
 | [docs/](./docs/) | 画面截图等文档素材 |
 | [Pixel_Survival_Plus_Mod_API.md](./Pixel_Survival_Plus_Mod_API.md) | Mod API 详细说明文档 |
 | [Pixel_Survival_Plus_Mod_API_Example.js](./Pixel_Survival_Plus_Mod_API_Example.js) | Mod 开发示例脚本 |
@@ -183,8 +171,6 @@
 
 | 命令 | 说明 |
 |---|---|
-| `python tools/build-mc-textures.py` | 把 `2233/` 材质包里用到的贴图重新打包进 [js/mc-textures.js](./js/mc-textures.js) |
-| `python tools/build-mc-sounds.py` | 从 `2233/` 提取音效样本，打包进 [js/mc-sounds.js](./js/mc-sounds.js) |
 | `node tools/smoke-test.js` | 无浏览器冒烟测试：加载全部脚本、绘制所有面板、跑通合成与存档 |
 | `node tools/e2e-crafting.js` | 用无头 Edge 真实点击背包 / 工作台，验证拿放材料与取出产物 |
 | `node tools/screenshot.js` | 用无头 Edge 输出 `docs/ui-*.png` 界面截图（`--only inventory` 只截一张） |
