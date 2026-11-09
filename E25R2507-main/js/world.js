@@ -403,6 +403,7 @@ function reset(mapDefinition=null){
     x: mapDefinition?((mapDefinition.spawn.x+0.5)*TILE):TILE/2,
     y: mapDefinition?((mapDefinition.spawn.y+0.5)*TILE):TILE/2,
     vx: 0, vy: 0,
+    jumpHeight: 0, jumpVelocity: 0,
     hp: 100, maxHp: 100,
     hunger: 100, maxHunger: 100, thirst:100, maxThirst:100, bodyTemp:36.5,
     stamina: 100, maxStamina: 100,

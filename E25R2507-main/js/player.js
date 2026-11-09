@@ -763,6 +763,7 @@ function doAttack(){
   const hx = p.x + ax * gatherRange;
   const hy = (p.y - 10) + ay * gatherRange;
   const hitR = 15;
+  const meleeReach = TILE * 3;
 
   let hitAny = false;
   let hitEnemy = false;
@@ -776,7 +777,7 @@ function doAttack(){
     const angleDiff = Math.atan2(Math.sin(angle - aimAngle), Math.cos(angle - aimAngle));
     // 命中判定按「身体」算：整个身形都在判定里，不是只打某个点
     const bodyReach = (e.height || e.r * 2 || 14) * 0.55;
-    if (d < p.range + e.r + 5 + bodyReach && Math.abs(angleDiff) < 1.25){
+    if (d - bodyReach <= meleeReach && Math.abs(angleDiff) < 1.25){
       e.hp -= attackDamage;
       e.hitFlash = 0.16;
       const kx = e.x - p.x, ky = e.y - p.y;
@@ -805,7 +806,7 @@ function doAttack(){
     if(pets.includes(animal))continue;   // 已驯服的宠物不受伤
     const dx=animal.x-p.x,dy=animal.y-p.y,d=Math.hypot(dx,dy);
     const angleDiff=Math.atan2(Math.sin(Math.atan2(dy,dx)-aimAngle),Math.cos(Math.atan2(dy,dx)-aimAngle));
-    if(d>p.range+9||Math.abs(angleDiff)>=0.9)continue;
+    if(d-9>meleeReach||Math.abs(angleDiff)>=0.9)continue;
     animal.hp=(animal.hp||3)-attackDamage;
     spawnParticles(animal.x,animal.y-6,'#d7cba2',5);
     if(animal.hp<=0){

@@ -79,7 +79,10 @@ window.addEventListener('keydown', e => {
 window.addEventListener('keyup', e => { keys[e.code] = false; });
 
 canvas.addEventListener('mousemove', e => {
-  if (firstPersonLocked() && document.pointerLockElement === canvas) return;
+  if (window.Pixel3D && Pixel3D.active() && document.pointerLockElement === canvas){
+    mouse.x = W / 2; mouse.y = H / 2; mouse.active = true;
+    return;
+  }
   const p = getMousePos(e);
   mouse.x = p.x; mouse.y = p.y;
   mouse.active = true;
@@ -89,10 +92,12 @@ canvas.addEventListener('mousemove', e => {
   }
 });
 
-/* 第一人称：鼠标移动直接转动视角（Pointer Lock） */
+/* 锁定鼠标后，第一人称与第三人称都使用相对移动控制视角。 */
 document.addEventListener('mousemove', e => {
-  if (!firstPersonLocked() || document.pointerLockElement !== canvas || panel) return;
-  if (window.Pixel3D && typeof Pixel3D.look === 'function') Pixel3D.look(e.movementX || 0, e.movementY || 0);
+  if (document.pointerLockElement !== canvas || panel || !window.Pixel3D || !Pixel3D.active()) return;
+  const dx = e.movementX || 0, dy = e.movementY || 0;
+  if (firstPersonLocked() && typeof Pixel3D.look === 'function') Pixel3D.look(dx, dy);
+  else if (typeof Pixel3D.orbitCamera === 'function') Pixel3D.orbitCamera(-dx * 0.0026, dy * 0.0022);
 });
 
 let lockGraceUntil = 0;   // 关面板后的宽限期，这段时间不自动弹暂停
@@ -122,11 +127,6 @@ canvas.addEventListener('mousedown', e => {
     return;
   }
   armBackGuard();
-  // 点画面即重新锁定鼠标（第一人称）；避免返回游戏后系统光标还留在外面
-  if (!panel && !G.gameOver && document.pointerLockElement !== canvas &&
-      typeof requestFirstPersonLock === 'function'){
-    requestFirstPersonLock();
-  }
   if (panel === 'inventory' || panel === 'craft' || panel === 'machine'){
     e.preventDefault();
     panelPressSlot = slotAt(p.x, p.y);
@@ -150,6 +150,11 @@ canvas.addEventListener('mousedown', e => {
 
   if (hitUI(p.x, p.y)) return;   // 点中了界面
   if (panel || G.gameOver) return;
+  // 仅在游戏画面点击时锁定，避免打开界面时抢走鼠标。
+  if (window.Pixel3D && Pixel3D.active() && document.pointerLockElement !== canvas &&
+      typeof requestFirstPersonLock === 'function'){
+    requestFirstPersonLock();
+  }
   if (firstPersonLocked()){
     if (document.pointerLockElement !== canvas){ requestFirstPersonLock(); return; }
     mouse.down = true;
@@ -224,12 +229,21 @@ function hitUI(mx, my){
 
 /* ── 第一人称视角切换（F5） ─────────────────── */
 function requestFirstPersonLock(){
-  if (!canvas.requestPointerLock) return;
+  if (!canvas.requestPointerLock){
+    showToast('浏览器不支持鼠标锁定 · 可用中键拖动旋转视角', '#ffc080');
+    return;
+  }
   try{
     const result = canvas.requestPointerLock();
-    if (result && typeof result.catch === 'function') result.catch(() => {});
+    if (result && typeof result.catch === 'function'){
+      result.catch(error => {
+        console.warn('[Pixel Survival] 鼠标锁定失败', error);
+        showToast('鼠标锁定失败 · 请点击画面重试', '#ffc080');
+      });
+    }
   }catch(error){
-    /* 浏览器拒绝锁定鼠标时保持第三人称 */
+    console.warn('[Pixel Survival] 鼠标锁定失败', error);
+    showToast('鼠标锁定失败 · 请点击画面重试', '#ffc080');
   }
 }
 function toggleFirstPersonView(){
@@ -367,5 +381,8 @@ function onKeyPress(code){
   if (code === 'KeyH'){ useHealing(); return; }
   if (code === 'KeyF'){ if(G.inCave){ returnToSurface(); return; } tryUseCaveEntrance(); return; }
   if (code === 'KeyQ'){ placeTorch(); return; }
-  if (code === 'Space'){ doAttack(); }
+  if (code === 'Space'){
+    if (window.Pixel3D && Pixel3D.active()) tryPlayerJump();
+    else doAttack();
+  }
 }

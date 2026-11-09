@@ -405,13 +405,13 @@ function drawScreenFx(){
 /* ── HUD 与面板（两种引擎共用） ───────────────────── */
 function drawHudAndPanels(){
   uiButtons = [];
+  if(window.Pixel3D && typeof Pixel3D.firstPerson==='function' && Pixel3D.firstPerson()) drawFirstPersonHand();
   drawStatusBars();
   drawCompactHud();
   drawSkillHud();
   drawTutorial();
   if(showMap) drawMinimap();
   if(panel!=='inventory'&&panel!=='craft') drawHotbar();
-  if(window.Pixel3D && typeof Pixel3D.firstPerson==='function' && Pixel3D.firstPerson()) drawFirstPersonHand();
   drawHints();
   drawToast();
 

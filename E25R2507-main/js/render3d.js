@@ -754,7 +754,7 @@
     const fwd = [Math.sin(yaw) * cosPitch, -Math.sin(pitch), Math.cos(yaw) * cosPitch];
     const eye = [
       player.x / TILE + jitterX,
-      ground + eyeHeight + jitterY,
+      ground + eyeHeight + (player.jumpHeight || 0) + jitterY,
       player.y / TILE + jitterZ,
     ];
     const target = [eye[0] + fwd[0] * 8, eye[1] + fwd[1] * 8, eye[2] + fwd[2] * 8];
@@ -787,9 +787,12 @@
     CAM.tanHalf = Math.tan(CAM.fov / 2);
     const config = cameraBase();
     const yaw = config.yaw + orbit.yaw;
-    const pitch = clamp(config.pitch + orbit.pitch, 0.04, 1.35);
+    const pitch = clamp(config.pitch + orbit.pitch, 0.08, 1.4);
     const ground = groundAt(player.x, player.y);
-    const targetX = player.x / TILE, targetZ = player.y / TILE;
+    const forwardX = -Math.sin(yaw), forwardZ = -Math.cos(yaw);
+    const rightX = Math.cos(yaw), rightZ = -Math.sin(yaw);
+    const targetX = player.x / TILE + forwardX * 1.8 + rightX * 0.8;
+    const targetZ = player.y / TILE + forwardZ * 1.8 + rightZ * 0.8;
     const targetY = ground + 1.35;
     const dist = (config.distance * orbit.zoom) * (1 - Math.min(0.18, (CAM.aspect < 1.5 ? 0.1 : 0)));
     // 受击 / 爆炸时的镜头抖动
@@ -802,9 +805,9 @@
     }
     const targetXj = targetX + jitterX, targetZj = targetZ + jitterZ;
     const eye = [
-      targetXj + Math.sin(yaw) * Math.cos(pitch) * dist,
+      targetXj + Math.sin(yaw) * Math.cos(pitch) * dist - rightX * 0.45,
       targetY + jitterY + Math.sin(pitch) * dist,
-      targetZj + Math.cos(yaw) * Math.cos(pitch) * dist,
+      targetZj + Math.cos(yaw) * Math.cos(pitch) * dist - rightZ * 0.45,
     ];
     const target = [targetXj, targetY + jitterY, targetZj];
     const fwd = [target[0] - eye[0], target[1] - eye[1], target[2] - eye[2]];
@@ -1482,7 +1485,7 @@
     const chargeNeed = (((ITEMS[p.weapon] || {}).chargeTime) || 1.1) * 1000;
     const drawBack = p.chargeStart ? Math.min(1, (performance.now() - p.chargeStart) / chargeNeed) : 0;
 
-    modelAt(x, z, base + bob, yaw, 1);
+    modelAt(x, z, base + (p.jumpHeight || 0) + bob, yaw, 1);
     // 模型部件
     resetO(); O.light = 0.94;
     O.rotX = stride * 0.55;
@@ -1863,8 +1866,14 @@
   }
 
   function orbitCamera(dx, dy){
-    orbit.yaw += dx;
-    orbit.pitch = clamp(orbit.pitch + dy, -0.42, 0.62);
+    const turn = dx || 0;
+    orbit.yaw = ((orbit.yaw + turn + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+    if (viewMode === 'first'){
+      orbit.pitch = clamp(orbit.pitch + (dy || 0), -0.42, 0.62);
+    }else{
+      const basePitch = cameraBase().pitch;
+      orbit.pitch = clamp(orbit.pitch + (dy || 0), 0.08 - basePitch, 1.4 - basePitch);
+    }
   }
 
   /* 第一人称：鼠标转动视角 */
@@ -1930,4 +1939,3 @@
     _debug: S,
   };
 })();
-

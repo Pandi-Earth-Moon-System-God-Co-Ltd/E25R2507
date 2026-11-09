@@ -225,6 +225,16 @@ function updatePlayer(dt){
   const p = player;
   updateEffects(dt);
   updateCombat(dt);
+  if (!Number.isFinite(p.jumpHeight)) p.jumpHeight = 0;
+  if (!Number.isFinite(p.jumpVelocity)) p.jumpVelocity = 0;
+  if (p.jumpHeight > 0 || p.jumpVelocity > 0){
+    p.jumpVelocity -= 18 * dt;
+    p.jumpHeight += p.jumpVelocity * dt;
+    if (p.jumpHeight <= 0){
+      p.jumpHeight = 0;
+      p.jumpVelocity = 0;
+    }
+  }
 
   let mx = 0, my = 0;
   if (keys['KeyW'] || keys['ArrowUp'])    my--;
@@ -268,8 +278,9 @@ function updatePlayer(dt){
 
   // 瞄准
   const firstPerson = !!(window.Pixel3D && typeof Pixel3D.firstPerson === 'function' && Pixel3D.firstPerson());
-  if (firstPerson){
-    // 第一人称：准星固定在屏幕中心
+  const cameraLocked = !!(window.Pixel3D && Pixel3D.active() && document.pointerLockElement === canvas);
+  if (firstPerson || cameraLocked){
+    // 锁定鼠标时，准星与相机朝向保持一致。
     mouse.x = W / 2; mouse.y = H / 2; mouse.active = true;
   }
   const cursorWorld=(window.Pixel3D&&Pixel3D.active())
@@ -300,7 +311,7 @@ function updatePlayer(dt){
     showToast('正在涉水 · 移动速度降低','#9de9f0');
 
   if (p.atkCd > 0)     p.atkCd -= dt;
-  if (p.swing > 0)     p.swing -= dt;
+  if (p.swing > 0)     p.swing = Math.max(0, p.swing - dt);
   if (p.invuln > 0)    p.invuln -= dt;
   if (p.hurtFlash > 0) p.hurtFlash -= dt;
 
@@ -335,9 +346,18 @@ function updatePlayer(dt){
   if (p.hp <= 0){ p.hp = 0; gameOver(); }
 
   // 连续攻击
-  if ((keys['Space'] || mouse.down) && p.atkCd <= 0 && !G.gameOver){
+  if ((mouse.down || (keys['Space'] && !(window.Pixel3D && Pixel3D.active()))) &&
+      p.atkCd <= 0 && !G.gameOver){
     doAttack();
   }
+}
+
+function tryPlayerJump(){
+  if (!player || G.gameOver || panel || !window.Pixel3D || !Pixel3D.active()) return;
+  if (!Number.isFinite(player.jumpHeight)) player.jumpHeight = 0;
+  if (player.jumpHeight > 0) return;
+  player.jumpHeight = 0;
+  player.jumpVelocity = 6.8;
 }
 
 function isPlayerInWater(x,y){

@@ -165,7 +165,8 @@ function drawGuidePanel(){
   uiPanel(x,y,w,h,{title:english?'HELP CENTER · CONTROLS':japanese?'ヘルプ · 操作方法':'帮助中心 · 按键与操作'});
   const pages=english?[
     [
-      ['Move in 8 directions','W A S D / Arrow keys'],['Sprint','Left / Right Shift'],['Attack / gather','Left mouse / Space'],
+      ['Move in 8 directions','W A S D / Arrow keys'],['Sprint','Left / Right Shift'],['Attack / gather','Left mouse'],
+      ['Jump (3D)','Space'],
       ['Use / interact','Right mouse'],['Hotbar','1–9 / Mouse wheel'],['Inventory','E'],
       ['Crafting','C / Tab'],['Technology','T'],['Eat best food','H'],['Cave / eat','F'],
       ['Place torch','Q'],['Save game','K'],['Pause / resume','P / Esc'],['Minimap','M'],
@@ -185,7 +186,7 @@ function drawGuidePanel(){
       ['Touch screen','Tap for pointer actions; use the keyboard for movement.'],
       ['Survival time','One in-game day lasts 10 minutes by default.'],
       ['Video & performance','L / F3 sets presets, resolution, draw distance, particles, FPS cap and auto quality.'],
-      ['3D camera','WASD moves relative to the camera; middle-drag rotates, Shift+wheel zooms.'],
+      ['3D camera','Click the game to lock the mouse and look around; middle-drag also rotates, Shift+wheel zooms. Space jumps.'],
       ['More help','J / F1 opens this center; Esc closes it.'],
     ],
     [
@@ -203,7 +204,8 @@ function drawGuidePanel(){
     ],
   ]:japanese?[
     [
-      ['8方向移動','W A S D / 矢印キー'],['ダッシュ','左 / 右 Shift'],['攻撃 / 採集','マウス左 / Space'],
+      ['8方向移動','W A S D / 矢印キー'],['ダッシュ','左 / 右 Shift'],['攻撃 / 採集','マウス左'],
+      ['ジャンプ（3D）','Space'],
       ['使用 / 操作','マウス右'],['アイテム欄','1–9 / マウスホイール'],['持ち物','E'],
       ['クラフト','C / Tab'],['テクノロジー','T'],['食事','H'],['洞窟 / 食事','F'],
       ['たいまつ設置','Q'],['ゲーム保存','K'],['一時停止 / 再開','P / Esc'],['ミニマップ','M'],
@@ -223,7 +225,7 @@ function drawGuidePanel(){
       ['タッチ操作','タップでポインター操作。移動にはキーボードを使用。'],
       ['生存時間','ゲーム内の1日は、初期設定で現実の10分。'],
       ['画質と性能','L / F3で画質プリセット、解像度、描画距離、粒子、FPS上限、自動調整を設定。'],
-      ['3D 視点','WASDは視点方向へ移動。中ボタンドラッグで回転、Shift＋ホイールで拡大縮小。'],
+      ['3D 視点','ゲーム画面をクリックしてマウス視点操作。中ボタンドラッグでも回転、Shift＋ホイールで拡大縮小。Spaceでジャンプ。'],
       ['ヘルプを開く','J / F1で表示、Escで閉じる。'],
     ],
     [
@@ -241,7 +243,8 @@ function drawGuidePanel(){
     ],
   ]:[
     [
-      ['八方向移动','W A S D / 方向键'],['冲刺','左 Shift / 右 Shift'],['攻击 / 采集','鼠标左键 / 空格'],
+      ['八方向移动','W A S D / 方向键'],['冲刺','左 Shift / 右 Shift'],['攻击 / 采集','鼠标左键'],
+      ['跳跃（3D）','空格'],
       ['使用 / 交互','鼠标右键'],['快捷栏','1–9 / 鼠标滚轮'],['背包','E'],
       ['合成','C / Tab'],['科技','T'],['快速进食','H'],['洞穴 / 进食','F'],
       ['放置火把','Q'],['保存游戏','K'],['暂停 / 继续','P / Esc'],['小地图','M'],
@@ -254,7 +257,7 @@ function drawGuidePanel(){
       ['鼠标右键','使用选中物品、喂养动物、河流取水或交互。'],
       ['拿放物品','左键拿起整组、右键拿一半；拖到垃圾桶可丢弃整组。'],
       ['合成界面','工作台 3×3 / 背包 2×2；右侧配方手册可一键摆放材料。'],
-      ['第一人称','F5 切换第一 / 第三人称，第一人称会锁定鼠标。'],
+      ['3D视角','点击游戏画面锁定鼠标并转动视角；中键拖动也可旋转，Shift + 滚轮缩放。空格跳跃。'],
       ['鼠标滚轮','切换快捷栏；合成界面中可滚动配方列表。'],
       ['暂停菜单','继续、重开、存档读档、人物外观或创作中心。'],
       ['主菜单','继续、新世界、存档、语言、帮助和创作中心。'],
@@ -263,7 +266,7 @@ function drawGuidePanel(){
       ['触屏','点击可执行鼠标操作；移动请使用键盘。'],
       ['生存时间','默认游戏内一天为现实时间 10 分钟。'],
       ['画面设置','L 打开画质预设、分辨率、视距、粒子、FPS 上限与自动降质。'],
-      ['3D 操作','WASD 按镜头方向移动；中键拖动旋转，Shift + 滚轮缩放，F5 切换视角。'],
+      ['3D 操作','WASD 按镜头方向移动；点击画面后鼠标转动视角，中键拖动也可旋转，Shift + 滚轮缩放。空格跳跃，F5 切换视角。'],
       ['更多帮助','按 J / F1 打开本中心，Esc 关闭。'],
     ],
     [

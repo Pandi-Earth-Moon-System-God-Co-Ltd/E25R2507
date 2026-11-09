@@ -255,15 +255,49 @@ function drawHotbar(){
    HUD：第一人称手持物品
    ══════════════════════════════════════════════════════════ */
 function drawFirstPersonHand(){
-  const id = player.toolId || player.weapon || hotbar[selectedHotbar];
-  if (!id || !ITEMS[id]) return;
-  const swing = player.swing > 0 ? Math.sin((1 - player.swing / ATTACK_ANIM_DURATION) * Math.PI) : 0;
-  const x = W - 120 - swing * 18, y = H - 68 + swing * 14;
+  const p = player;
+  const appearance = p.appearance || DEFAULT_PLAYER_APPEARANCE;
+  const outfit = PLAYER_CUSTOMIZATION.outfit[appearance.outfit] || PLAYER_CUSTOMIZATION.outfit[0];
+  const skin = PLAYER_CUSTOMIZATION.skin[appearance.skin] || PLAYER_CUSTOMIZATION.skin[0];
+  const id = p.toolId || p.weapon || hotbar[selectedHotbar];
+  const moving = Math.abs(p.walkPhase) > 0.01;
+  const stride = moving ? Math.sin(p.walkPhase * 0.32) : 0;
+  const attackT = p.swing > 0 ? 1 - p.swing / ATTACK_ANIM_DURATION : -1;
+  const attackPhase = attackT >= 0 ? Math.sin(clamp(attackT, 0, 1) * Math.PI * 2) : 0;
+  const scale = clamp(H / 270, 0.75, 1.6);
+  const length = 150 * scale;
+  const width = 42 * scale;
+  const bob = moving ? stride * 1.2 * scale : Math.sin(G.time * 2.4) * 0.5 * scale;
+  const jump = Math.min(9, (p.jumpHeight || 0) * 3) * scale;
+  const x = W + 8 * scale;
+  const y = H + 8 * scale + bob - jump;
+  const swingAngle = clamp((moving ? stride * 0.2 : 0) + attackPhase, -1, 1) * Math.PI / 9;
+  const rotation = -1 + swingAngle;
   ctx.save();
-  ctx.translate(x + 18, y + 18);
-  ctx.rotate(-0.3 - swing * 0.5);
+  ctx.translate(x, y);
+  ctx.rotate(rotation);
   ctx.imageSmoothingEnabled = false;
-  drawItemIcon(ctx, id, -15, -15, 30);
+  ctx.fillStyle = '#171717';
+  ctx.fillRect(-width / 2, -length, width, length);
+  ctx.fillStyle = outfit.shadow;
+  ctx.fillRect(-width / 2 + scale, -length + scale, width - 2 * scale, length - scale);
+  ctx.fillStyle = outfit.base;
+  ctx.fillRect(-width / 2 + 2 * scale, -length + scale, width - 5 * scale, length - 2 * scale);
+  ctx.fillStyle = outfit.light || outfit.base;
+  ctx.fillRect(-width / 2 + 2 * scale, -length + scale, 6 * scale, length - 5 * scale);
+  ctx.fillStyle = skin.shadow;
+  ctx.fillRect(-width / 2 + scale, -length, width - 2 * scale, 20 * scale);
+  ctx.fillStyle = skin.base;
+  ctx.fillRect(-width / 2 + 2 * scale, -length + scale, width - 4 * scale, 18 * scale);
+  ctx.fillStyle = skin.light || skin.base;
+  ctx.fillRect(-width / 2 + 2 * scale, -length + scale, 9 * scale, 12 * scale);
+  if (id && ITEMS[id]){
+    ctx.save();
+    ctx.translate(0, -length + 10 * scale);
+    ctx.rotate(-0.25);
+    drawItemIcon(ctx, id, -15 * scale, -27 * scale, 30 * scale);
+    ctx.restore();
+  }
   ctx.restore();
 }
 
@@ -390,8 +424,11 @@ function drawToast(){
 function drawHints(){
   if (panel) return;
   const fp = !!(window.Pixel3D && typeof Pixel3D.firstPerson === 'function' && Pixel3D.firstPerson());
-  const hint = fp
-    ? localizeGameText('WASD移动 · 鼠标转动视角 · 左键攻击 · 右键使用 · E背包 · F5第三人称 · ESC暂停')
+  const is3D = !!(window.Pixel3D && Pixel3D.active());
+  const hint = is3D
+    ? localizeGameText(fp
+      ? 'WASD移动 · 鼠标转视角 · 空格跳跃 · 左键攻击 · 右键使用 · F5第三人称 · ESC暂停'
+      : 'WASD移动/Shift冲刺 · 点击后鼠标转视角 · 中键拖动 · 空格跳跃 · 左键攻击 · F5第一人称 · M地图')
     : localizeGameText('WASD移动/Shift冲刺 · 左键攻击 · 右键使用 · E背包 · C合成 · F5第一人称 · M地图');
   ctx.font = 'bold 6px '+UI_FONT;
   ctx.textAlign = 'center';

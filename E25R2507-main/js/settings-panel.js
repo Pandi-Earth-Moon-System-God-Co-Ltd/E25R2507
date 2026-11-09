@@ -125,7 +125,7 @@ function drawSettingsPanel(){
       document.exitPointerLock();
     }
   });
-  txt('3D 第三人称：中键拖动旋转 · F5 切换第一 / 第三人称', colB, y+68, { size:6, bold:true, color:'#555555' });
+  txt('3D 第三人称：点击画面后鼠标转动视角 · 中键拖动旋转 · 空格跳跃', colB, y+68, { size:6, bold:true, color:'#555555' });
   const stats = window.Pixel3D && Pixel3D.stats ? Pixel3D.stats() : { cubes:0, chunks:0 };
   txt('FPS '+Math.round(fpsSmooth)+' · 方块 '+stats.cubes+' · 区块 '+stats.chunks,
     colB, y+80, { size:6, bold:true, color:'#3f3f3f' });
