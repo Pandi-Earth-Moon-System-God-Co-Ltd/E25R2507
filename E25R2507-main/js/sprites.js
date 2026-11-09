@@ -321,10 +321,11 @@ function drawPlayer(x, y){
   const hair=PLAYER_CUSTOMIZATION.hairColor[appearance.hairColor]||PLAYER_CUSTOMIZATION.hairColor[0];
   const outfit=PLAYER_CUSTOMIZATION.outfit[appearance.outfit]||PLAYER_CUSTOMIZATION.outfit[0];
   const eyes=PLAYER_CUSTOMIZATION.eyes[appearance.eyes]||PLAYER_CUSTOMIZATION.eyes[0];
-  const moving = Math.abs(p.walkPhase) > 0.01;
-  const stride = moving ? Math.sin(p.walkPhase * 10) : 0;
-  const idleBreath = moving ? 0 : Math.sin(G.time * 3) * 0.45;
-  const bob = moving ? Math.abs(stride) * 0.7 : idleBreath;
+  const gait = playerMoveBlend();
+  const moving = gait > 0.01;
+  const stride = Math.sin(p.walkPhase * 2.5) * gait;
+  const idleBreath = Math.sin(G.time * 3) * 0.45 * (1 - gait);
+  const bob = Math.abs(stride) * 0.7 + idleBreath;
   const legSwing = stride * 2;
   const attackT = p.swing > 0 ? 1 - p.swing / ATTACK_ANIM_DURATION : -1;
   const recoil = attackT >= 0 ? Math.sin(Math.min(1, attackT) * Math.PI) : 0;
@@ -344,7 +345,7 @@ function drawPlayer(x, y){
 
   R(x-8 - recoil, y-1, 16 + recoil * 2, 3, 'rgba(0,0,0,0.32)');
   if(typeof drawCustomPlayerSprite==='function'&&drawCustomPlayerSprite(ctx,x,y)){
-    drawHeldItem(x,y,moving,stride,attackT,0);
+    drawHeldItem(x,y,gait,stride,attackT,0);
     ctx.globalAlpha=1;
     return;
   }
@@ -462,7 +463,7 @@ function drawPlayer(x, y){
     R(x-2, y-16, 4, 6, armor.color2);
   }
 
-  drawHeldItem(x, y, moving, stride, attackT,0);
+  drawHeldItem(x, y, gait, stride, attackT,0);
 
   ctx.globalAlpha = 1;
 
@@ -500,8 +501,9 @@ function getAttackSwingOffset(attackT, combo){
   return combo===2?-swingOffset:swingOffset;
 }
 
-function drawHeldItem(x, y, moving, stride, attackT,bodyAngle=0){
+function drawHeldItem(x, y, gait, stride, attackT,bodyAngle=0){
   const p = player;
+  const moving = gait > 0.01;
   const appearance=p.appearance||DEFAULT_PLAYER_APPEARANCE;
   const outfit=PLAYER_CUSTOMIZATION.outfit[appearance.outfit]||PLAYER_CUSTOMIZATION.outfit[0];
   const skin=PLAYER_CUSTOMIZATION.skin[appearance.skin]||PLAYER_CUSTOMIZATION.skin[0];
@@ -533,7 +535,7 @@ function drawHeldItem(x, y, moving, stride, attackT,bodyAngle=0){
   const aimWorldAngle=item.firearm?Math.atan2(p.aimY,p.aimX):
     p.swing>0?p.attackAngle:Math.atan2(p.aimY,p.aimX);
   const aimAngle=projectedDirectionAngle(aimWorldAngle)-bodyAngle;
-  let swingOffset = moving ? stride * 0.12 : Math.sin(G.time * 2.4) * 0.035;
+  let swingOffset = stride * 0.12 + Math.sin(G.time * 2.4) * 0.035 * (1 - gait);
   if (attackT >= 0) swingOffset=getAttackSwingOffset(attackT,p.combo);
   if(item.firearm) swingOffset=0;
   const shoulderX = x + 5, shoulderY = y - 15;

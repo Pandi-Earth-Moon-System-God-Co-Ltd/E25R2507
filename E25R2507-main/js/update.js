@@ -221,6 +221,10 @@ function update(dt){
   if(!G.gameOver) updatePlayerBullets(dt);
 }
 
+function playerMoveBlend(){
+  return clamp(Math.hypot(player.vx || 0, player.vy || 0) / Math.max(1, player.speed || 84), 0, 1);
+}
+
 function updatePlayer(dt){
   const p = player;
   updateEffects(dt);
@@ -269,11 +273,9 @@ function updatePlayer(dt){
       const worldY=-sin*inputRight-cos*inputUp;
       mx=worldX; my=worldY;
     }
-    p.walkPhase += dt * (wantSprint ? 9 : 6);
+    p.walkPhase += dt * (wantSprint ? 4.5 : 3);
     p.facingAngle=Math.atan2(my,mx);
     if (mx !== 0) p.facing = mx > 0 ? 1 : -1;
-  } else {
-    p.walkPhase = 0;
   }
 
   // 瞄准
