@@ -443,6 +443,8 @@ function reset(mapDefinition=null){
   generateVillage();
   spawnTimer = 0; shake = 0;
   panel = null; characterReturnPanel=null; selectedRecipe = 0;
+  devModeEnabled=false; devInvincible=false; devMaintainFullStatus=false;
+  devNoSkillCooldown=false; devIgnoreCraftRequirements=false; developerReturnPanel=null;
   selectedMachine = null;
   selectedHotbar = 0;
   inventoryDragSource = null;
@@ -487,6 +489,11 @@ function recalcEquipment(){
   player.speed = 100 * (1+G.growth.ranks.agility*0.04) * (G.effects.haste>0?1.25:1);
   player.hp = Math.min(player.hp,player.maxHp);
   player.stamina = Math.min(player.stamina,player.maxStamina);
+}
+
+function selectedHeldItemId(){
+  const id=hotbar[selectedHotbar];
+  return id&&inv[id]>0&&ITEMS[id]?id:null;
 }
 
 function showToast(text, color){

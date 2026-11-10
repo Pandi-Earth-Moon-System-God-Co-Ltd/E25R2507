@@ -138,9 +138,11 @@ function drawPausePanel(){
   uiButton(cbx, cby, 96, 14, '人物外观  O', { kind:'blue' });
   uiButtons.push({x:cbx, y:cby, w:96, h:14, fn:() => { characterReturnPanel='pause'; panel='character'; }});
 
-  const studioX=W/2-55,studioY=py+136;
-  uiButton(studioX,studioY,110,15,'创作工坊  F2',{kind:'gold'});
-  uiButtons.push({x:studioX,y:studioY,w:110,h:15,fn:openGameStudio});
+  const studioX=W/2-104,studioY=py+136;
+  uiButton(studioX,studioY,98,15,'创作工坊 F2',{kind:'gold'});
+  uiButtons.push({x:studioX,y:studioY,w:98,h:15,fn:openGameStudio});
+  uiButton(studioX+110,studioY,98,15,'开发者模式 F4',{kind:'blue'});
+  uiButtons.push({x:studioX+110,y:studioY,w:98,h:15,fn:openDeveloperPanel});
 
   const bw=92, bh=22, gap=12;
   const bx1=W/2-bw-gap/2, bx2=W/2+gap/2, by=py+PH-34;
@@ -160,6 +162,78 @@ function drawPausePanel(){
   uiButtons.push({x:menuX,y:menuY,w:90,h:16,fn:()=>{
     if(saveGame()){titleMenuHasSave=true;panel='title';}
   }});
+}
+
+function openDeveloperPanel(){
+  if(G.gameOver) return;
+  clearInput();
+  developerReturnPanel=panel==='pause'?'pause':null;
+  panel='developer';
+}
+
+function drawDeveloperPanel(){
+  drawMcBackdrop(0.64);
+  const PW=360,PH=214,px=(W-PW)/2,py=(H-PH)/2;
+  uiPanel(px-3,py-3,PW+6,PH+6,{});
+  uiPanel(px,py,PW,PH,{title:'开发者模式'});
+  txt('F4 / ESC 关闭',px+PW-10,py+10,{size:7,bold:true,color:'#404040',align:'right'});
+  txt('这些测试开关只在当前游戏会话生效，不会写入存档。',W/2,py+34,
+    {size:7,color:'#555555',align:'center'});
+
+  const rowY=py+48;
+  uiButton(px+22,rowY,PW-44,17,devModeEnabled?'开发者模式：开启':'开发者模式：关闭',
+    {kind:devModeEnabled?'green':'wood'});
+  uiButtons.push({x:px+22,y:rowY,w:PW-44,h:17,fn:()=>{
+    devModeEnabled=!devModeEnabled;
+    if(!devModeEnabled){
+      devInvincible=false;devMaintainFullStatus=false;
+      devNoSkillCooldown=false;devIgnoreCraftRequirements=false;
+    }
+    showToast(devModeEnabled?'开发者模式已开启':'开发者模式已关闭','#a8e0ff');
+  }});
+
+  const optionW=148;
+  const leftX=px+22,rightX=px+PW-22-optionW;
+  const optionButton=(x,y,label,active,fn,w=optionW)=>{
+    uiButton(x,y,w,17,label+'：'+(active?'开启':'关闭'),
+      {kind:active?'green':'wood',disabled:!devModeEnabled});
+    if(devModeEnabled)uiButtons.push({x,y,w,h:17,fn});
+  };
+  optionButton(leftX,py+71,'无敌模式',devInvincible,()=>{
+    devInvincible=!devInvincible;
+    if(devInvincible)player.hp=player.maxHp;
+    showToast(devInvincible?'无敌模式已开启':'无敌模式已关闭','#a8e0ff');
+  });
+  optionButton(rightX,py+71,'维持状态全满',devMaintainFullStatus,()=>{
+    devMaintainFullStatus=!devMaintainFullStatus;
+    if(devMaintainFullStatus){
+      player.hp=player.maxHp;player.hunger=player.maxHunger;player.thirst=player.maxThirst;
+      player.stamina=player.maxStamina;
+    }
+    showToast(devMaintainFullStatus?'生命、饥饿、口渴与体力将持续保持全满':'状态恢复正常变化','#a8e0ff');
+  });
+  optionButton(leftX,py+94,'技能无冷却',devNoSkillCooldown,()=>{
+    devNoSkillCooldown=!devNoSkillCooldown;
+    if(devNoSkillCooldown)for(const skill of SKILLS)G.skills[skill.id]=0;
+    showToast(devNoSkillCooldown?'技能冷却已关闭':'技能冷却恢复正常','#a8e0ff');
+  });
+  optionButton(rightX,py+94,'无视合成条件',devIgnoreCraftRequirements,()=>{
+    devIgnoreCraftRequirements=!devIgnoreCraftRequirements;
+    showToast(devIgnoreCraftRequirements?'配方手册可直接免费合成':'合成条件恢复正常','#a8e0ff');
+  });
+
+  const timeY=py+117,timeW=73,timeGap=8;
+  [['清晨',0.02],['正午',0.25],['黄昏',0.5],['午夜',0.75]].forEach(([label,time],index)=>{
+    const x=px+22+index*(timeW+timeGap);
+    uiButton(x,timeY,timeW,17,label,{kind:'blue',disabled:!devModeEnabled});
+    if(devModeEnabled)uiButtons.push({x,y:timeY,w:timeW,h:17,fn:()=>setDeveloperTime(time)});
+  });
+  const skipY=py+140,skipW=PW-44,skipX=px+22;
+  uiButton(skipX,skipY,skipW,17,'跳过一天',{kind:'blue',disabled:!devModeEnabled});
+  if(devModeEnabled)uiButtons.push({x:skipX,y:skipY,w:skipW,h:17,fn:skipDeveloperDay});
+  const hour=String(Math.floor((G.dayTime*24+6)%24)).padStart(2,'0');
+  txt('第 '+G.day+' 天 · '+hour+' 时 · 生命 '+Math.ceil(player.hp)+' / '+player.maxHp,
+    W/2,py+PH-12,{size:7,bold:true,color:'#555555',align:'center'});
 }
 
 function drawCharacterPanel(){

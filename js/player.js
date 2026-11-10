@@ -982,7 +982,8 @@ function killEnemy(e, idx){
 }
 
 function hurtPlayer(dmg){
-  if (player.invuln > 0 || G.gameOver) return;
+  if (player.invuln > 0 || G.gameOver ||
+      (devModeEnabled && (devInvincible || devMaintainFullStatus))) return;
   const real = dmg * (1 - player.armor) * (1-G.growth.ranks.guard*0.04) * (G.wardTime>0?0.5:1);
   player.hp -= real;
   player.invuln = 0.55;

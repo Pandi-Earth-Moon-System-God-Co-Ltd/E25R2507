@@ -201,6 +201,7 @@ function matchCraftRecipe(gridKey){
 function craftBlockedReason(rec){
   const it = ITEMS[rec.out];
   if (!it) return '未知物品';
+  if (devModeEnabled && devIgnoreCraftRequirements) return '';
   if (G.tech < rec.tier) return '需要' + TECH_LEVELS[rec.tier].name;
   if (rec.table && !nearCraftingTable()) return '需要靠近工作台';
   if ((it.kind === 'weapon' || it.kind === 'armor' || it.kind === 'tool') && !it.firearm && (inv[rec.out] || 0) > 0)
@@ -241,6 +242,14 @@ function giveCraftOutput(rec){
   if (rec.out === 'torch') G.tutorialTorch = true;
   if (window.PixelSurvivalAudio) PixelSurvivalAudio.play('craft', rec.out);
   if (window.PixelSurvivalModAPI) PixelSurvivalModAPI.emit('crafted', { id:rec.out, count:rec.count || 1 });
+}
+
+function developerCraftRecipe(rec){
+  if(!devModeEnabled||!devIgnoreCraftRequirements||!rec||!ITEMS[rec.out]) return false;
+  giveCraftOutput(rec);
+  showToast('直接合成：'+ITEMS[rec.out].name+((rec.count||1)>1?' ×'+rec.count:''),'#7dffb0');
+  spawnParticles(player.x,player.y-14,'#7dffb0',8);
+  return true;
 }
 
 /* 点击产物格：制作一次（Shift 连续制作） */
@@ -566,7 +575,8 @@ function drawRecipeBook(){
   const bx = RECIPE_BOOK.x, by = RECIPE_BOOK.y, bw = RECIPE_BOOK.w, bh = RECIPE_BOOK.h;
   mcWindow(bx, by, bw, bh);
   txt('配方手册', bx + 8, by + 6, { size:8, bold:true, color:'#404040' });
-  txt('点击配方自动摆放材料', bx + bw - 8, by + 7, { size:6, bold:true, color:'#666666', align:'right' });
+  txt(devModeEnabled&&devIgnoreCraftRequirements?'点击配方直接合成':'点击配方自动摆放材料',
+  bx + bw - 8, by + 7, { size:6, bold:true, color:'#666666', align:'right' });
 
   const filters = [['all', '全部'], ['ready', '可制作'], ['tool', '装备'], ['build', '建筑']];
   filters.forEach(([id, label], index) => {
@@ -575,9 +585,11 @@ function drawRecipeBook(){
     uiButtons.push({ x:fx, y:fy, w:42, h:12, fn:() => { recipeBookFilter = id; recipeBookPage = 0; craftBookScroll = 0; } });
   });
 
-  // 只显示当前科技已解锁的配方
+  // 开启开发者合成时也列出尚未解锁的配方。
   const allRecipes = recipeBookList();
-  const list = allRecipes.filter(rec => (rec.tier || 0) <= (G.tech || 0));
+  const list = devModeEnabled&&devIgnoreCraftRequirements
+    ? allRecipes
+    : allRecipes.filter(rec => (rec.tier || 0) <= (G.tech || 0));
   const lockedCount = allRecipes.length - list.length;
   const rows = 10;
   const pages = Math.max(1, Math.ceil(list.length / rows));
@@ -592,7 +604,7 @@ function drawRecipeBook(){
   for (let i = 0; i < rows && start + i < list.length; i++){
     const rec = list[start + i];
     const y = listTop + i * rowH;
-    const enough = (() => {
+    const enough = devModeEnabled&&devIgnoreCraftRequirements || (() => {
       const compiled = compileShaped(rec);
       if (!compiled) {
         for (const id in rec.need) if ((inv[id] || 0) < rec.need[id]) return false;
@@ -615,7 +627,8 @@ function drawRecipeBook(){
     txt(needText, bx + 76, y + 4, { size:6, bold:true, color: enough ? '#4a4a4a' : '#8a8a8a' });
     if (rec.table) txt('台', bx + bw - 10, y + 4, { size:6, bold:true, color:'#8a6a2f', align:'right' });
     uiButtons.push({ x:bx + 4, y:y - 1, w:bw - 8, h:rowH - 1, fn:() => {
-      if (autoFillRecipe(rec)) recipeBookPage = recipeBookPage;
+      if(devModeEnabled&&devIgnoreCraftRequirements) developerCraftRecipe(rec);
+      else if (autoFillRecipe(rec)) recipeBookPage = recipeBookPage;
     } });
   }
   if (!list.length) txt('没有符合条件的配方', bx + bw / 2, by + 80, { size:7, bold:true, color:'#666666', align:'center' });

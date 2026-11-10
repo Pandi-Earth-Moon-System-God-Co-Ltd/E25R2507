@@ -69,7 +69,7 @@ function firstPersonLocked(){
 
 window.addEventListener('keydown', e => {
   if(e.repeat) return;
-  if(e.code==='F1'||e.code==='F2'||e.code==='F3'||e.code==='F5')e.preventDefault();
+  if(e.code==='F1'||e.code==='F2'||e.code==='F3'||e.code==='F4'||e.code==='F5')e.preventDefault();
   if (['Tab','Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code) ||
       /^Digit[1-9]$/.test(e.code)) e.preventDefault();
   if (keys[e.code]) return;
@@ -268,6 +268,26 @@ function onKeyPress(code){
     return;
   }
   if(code==='F2'&&!G.gameOver){openGameStudio();return;}
+  if(code==='F4'&&!G.gameOver&&(panel===null||panel==='pause'||panel==='developer')){
+    clearInput();
+    if(panel==='developer'){
+      panel=developerReturnPanel;
+      developerReturnPanel=null;
+      syncPointerLock();
+    }else{
+      developerReturnPanel=panel;
+      panel='developer';
+    }
+    return;
+  }
+  if(panel==='developer'){
+    if(code==='Escape'){
+      panel=developerReturnPanel;
+      developerReturnPanel=null;
+      syncPointerLock();
+    }
+    return;
+  }
   if(code==='F5' && !G.gameOver && (!panel || panel==='pause')){
     toggleFirstPersonView();
     return;

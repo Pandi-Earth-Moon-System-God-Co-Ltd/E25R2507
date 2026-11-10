@@ -507,7 +507,7 @@ function drawHeldItem(x, y, gait, stride, attackT,bodyAngle=0){
   const appearance=p.appearance||DEFAULT_PLAYER_APPEARANCE;
   const outfit=PLAYER_CUSTOMIZATION.outfit[appearance.outfit]||PLAYER_CUSTOMIZATION.outfit[0];
   const skin=PLAYER_CUSTOMIZATION.skin[appearance.skin]||PLAYER_CUSTOMIZATION.skin[0];
-  const itemId = p.toolId || p.weapon;
+  const itemId = selectedHeldItemId();
   if (!itemId){
     if(attackT>=0){
       const attackAngle=projectedDirectionAngle(p.attackAngle)+getAttackSwingOffset(attackT,p.combo);
@@ -556,7 +556,7 @@ function drawHeldItem(x, y, gait, stride, attackT,bodyAngle=0){
     ctx.fillStyle=item.color;ctx.fillRect(-2,-10+recoil,4,item.pellets>1?17:13);
     ctx.fillStyle='#18252b';ctx.fillRect(-1,-11+recoil,2,2);
     ctx.fillStyle='#e1d5b0';ctx.fillRect(-1,-5+recoil,1,5);
-  }else if (p.toolId){
+  }else if (item.kind==='tool'){
     ctx.fillStyle = item.color2;
     ctx.fillRect(-1,-10,2,24);
     ctx.fillStyle = item.color;
@@ -571,7 +571,7 @@ function drawHeldItem(x, y, gait, stride, attackT,bodyAngle=0){
     ctx.fill();
     ctx.fillStyle = '#f2d29a';
     ctx.fillRect(2,-10,3,1);
-  } else {
+  } else if(item.icon==='sword'){
     ctx.fillStyle = item.color2;
     ctx.fillRect(-1, 5, 2, 5);
     ctx.fillStyle = item.color;
@@ -580,6 +580,8 @@ function drawHeldItem(x, y, gait, stride, attackT,bodyAngle=0){
     ctx.fillRect(-1, -12, 1, 15);
     ctx.fillStyle = item.color2;
     ctx.fillRect(-5, 3, 10, 2);
+  } else {
+    drawItemIcon(ctx,itemId,-6,-3,12);
   }
   ctx.restore();
 }

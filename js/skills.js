@@ -28,7 +28,8 @@ function migrateCombat(s){
 }
 function updateCombat(dt){
   player.comboWindow=Math.max(0,player.comboWindow-dt);
-  for(const skill of SKILLS) G.skills[skill.id]=Math.max(0,G.skills[skill.id]-dt);
+  for(const skill of SKILLS)
+    G.skills[skill.id]=devModeEnabled&&devNoSkillCooldown?0:Math.max(0,G.skills[skill.id]-dt);
   G.wardTime=Math.max(0,G.wardTime-dt);
   for(const fx of combatFx) fx.life-=dt;
   combatFx=combatFx.filter(fx=>fx.life>0);
@@ -65,7 +66,7 @@ function castSkill(id){
   if(!skill)return false;
   if(!G.unlockedSkills.includes(id)){showToast('技能尚未解锁 · 按 N 打开技能树','#ffc080');return false;}
   if(G.growth.level<skill.level){showToast(skill.name+'需要 Lv.'+skill.level,'#ffc080');return false;}
-  if(G.skills[id]>0){showToast(skill.name+'冷却 '+Math.ceil(G.skills[id])+'秒','#ffc080');return false;}
+  if(G.skills[id]>0&&!(devModeEnabled&&devNoSkillCooldown)){showToast(skill.name+'冷却 '+Math.ceil(G.skills[id])+'秒','#ffc080');return false;}
   if(player.stamina<skill.cost){showToast('体力不足：需要'+skill.cost,'#ffc080');return false;}
   const angle=Math.atan2(player.aimY,player.aimX);
   const effect=skill.effect||id;
@@ -73,7 +74,7 @@ function castSkill(id){
   const dmgMul=Number(sp.damageMul)>0?Number(sp.damageMul):(effect==='spin'?1.6:effect==='nova'?3:2.2);
   const damage=Math.round(player.damage*dmgMul*(1+G.growth.ranks.mastery*.12));
   player.stamina-=skill.cost;
-  G.skills[id]=skill.cd*(1-G.growth.ranks.mastery*.06);
+  G.skills[id]=devModeEnabled&&devNoSkillCooldown?0:skill.cd*(1-G.growth.ranks.mastery*.06);
   const customEffect = CUSTOM_SKILL_EFFECTS[effect];
   if (customEffect){
     try{

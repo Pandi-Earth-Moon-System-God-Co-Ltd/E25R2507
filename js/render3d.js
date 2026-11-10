@@ -1574,17 +1574,38 @@
       resetO(); O.light = 0.8;
       lbox(0, 0.95, -0.24, 0.44, 0.62, 0.1, rgb(outfit.trim || outfit.shadow));
     }
-    // 武器
-    const weaponId = p.weapon;
-    if (weaponId && ITEMS[weaponId]){
-      const item = ITEMS[weaponId];
-      resetO(); O.light = 1; O.emiss = 0.05;
-      if (item.firearm){
-        lbox(0.36, 1.02, 0.34, 0.1, 0.12, 0.5, rgb(item.color2));
-        lbox(0.36, 1.05, 0.12, 0.08, 0.1, 0.2, rgb(item.color));
+    const heldId = selectedHeldItemId();
+    const heldItem = heldId && ITEMS[heldId];
+    if (heldItem){
+      const handX = -0.33;
+      const handY = shoulderY - handCenterOffset * Math.cos(leftArmAngle);
+      const handZ = shoulderZ - handCenterOffset * Math.sin(leftArmAngle) + 0.12;
+      const itemColor = rgb(heldItem.color || '#c9c9c9');
+      const itemShade = rgb(heldItem.color2 || heldItem.color || '#777777');
+      resetO(); O.light = 1; O.emiss = heldItem.icon === 'crystal' ? 0.12 : 0.03;
+      if (heldItem.firearm){
+        lbox(handX, handY + 0.04, handZ, 0.12, 0.14, 0.34, itemShade);
+        lbox(handX, handY + 0.06, handZ + 0.19, 0.08, 0.08, 0.2, itemColor);
+        lbox(handX, handY - 0.05, handZ - 0.03, 0.1, 0.14, 0.1, itemColor);
+      }else if (heldItem.icon === 'sword'){
+        lbox(handX, handY + 0.24, handZ + 0.04, 0.09, 0.48, 0.07, itemColor);
+        lbox(handX, handY + 0.24, handZ + 0.08, 0.035, 0.4, 0.025, rgb('#fff0c8'));
+        lbox(handX, handY + 0.01, handZ + 0.04, 0.28, 0.07, 0.11, itemShade);
+        lbox(handX, handY - 0.1, handZ + 0.04, 0.09, 0.18, 0.09, itemShade);
+      }else if (heldItem.kind === 'tool'){
+        O.rotX = -0.2;
+        lbox(handX, handY + 0.02, handZ, 0.07, 0.46, 0.07, itemShade);
+        O.rotX = 0;
+        lbox(handX, handY + 0.22, handZ, 0.32, 0.1, 0.1, itemColor);
+        lbox(handX - 0.11, handY + 0.19, handZ, 0.08, 0.16, 0.1, itemShade);
+      }else if (heldItem.icon === 'log'){
+        lbox(handX, handY + 0.04, handZ, 0.17, 0.28, 0.25, itemShade);
+        lbox(handX, handY + 0.04, handZ + 0.14, 0.13, 0.2, 0.035, itemColor);
       }else{
-        lbox(0.36, 1.18, 0.34, 0.07, 0.62, 0.07, rgb(item.color));
-        lbox(0.36, 0.92, 0.34, 0.16, 0.06, 0.16, rgb(item.color2));
+        const size = heldItem.kind === 'placeable' ? 0.3 : 0.26;
+        lbox(handX, handY + 0.03, handZ, size, size, size, itemShade);
+        lbox(handX, handY + 0.04 + size * 0.32, handZ + size * 0.52,
+          size * 0.58, size * 0.22, 0.025, itemColor);
       }
     }
     // 护甲光泽

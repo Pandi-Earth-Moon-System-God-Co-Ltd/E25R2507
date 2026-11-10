@@ -161,26 +161,7 @@ function update(dt){
   G.dayTime += dt / G.dayLength;
   if (G.dayTime >= 1){
     G.dayTime -= 1;
-    G.day++;
-    const oldSeason=getSeasonIndex(G.day-1);
-    const newSeason=getSeasonIndex();
-    if(newSeason!==oldSeason){
-      showToast('新季节：'+SEASONS[newSeason].name+' · '+(newSeason===3?'农田停止生长，准备过冬':'留意天气与资源变化'),'#d8e6c0');
-    }
-    if((G.day-1)%getYearLength()===0){
-      showToast('新的一年开始 · 世界生态 '+Math.round(getEcology())+'%','#a8e0ff');
-    }
-    startDailyWeather();
-    if(window.PixelSurvivalModAPI) PixelSurvivalModAPI.emit('newDay',{day:G.day});
-    G.bloodMoon = false;
-    G.bloodMoonWarning = false;
-    chests = chests.filter(c=>!c.open);
-    if (chests.length < 16){ addChest(); addChest(); }
-    if(G.day%getYearLength()!==0){
-      showToast(G.day % 7 === 0
-        ? '第 ' + G.day + ' 天 · 今夜将出现血月，做好准备！'
-        : '第 ' + G.day + ' 天开始', G.day % 7 === 0 ? '#ff8b8b' : '#ffe680');
-    }
+    advanceGameDay();
   }
   if (G.day % Math.min(7,getYearLength()) === 0 && G.dayTime >= 0.46 && !G.bloodMoonWarning){
     G.bloodMoon = true;
@@ -219,6 +200,42 @@ function update(dt){
   updateCamera(dt);
   updateSpawning(dt);
   if(!G.gameOver) updatePlayerBullets(dt);
+}
+
+function advanceGameDay(){
+  G.day++;
+  const oldSeason=getSeasonIndex(G.day-1);
+  const newSeason=getSeasonIndex();
+  if(newSeason!==oldSeason){
+    showToast('新季节：'+SEASONS[newSeason].name+' · '+(newSeason===3?'农田停止生长，准备过冬':'留意天气与资源变化'),'#d8e6c0');
+  }
+  if((G.day-1)%getYearLength()===0){
+    showToast('新的一年开始 · 世界生态 '+Math.round(getEcology())+'%','#a8e0ff');
+  }
+  startDailyWeather();
+  if(window.PixelSurvivalModAPI) PixelSurvivalModAPI.emit('newDay',{day:G.day});
+  G.bloodMoon = false;
+  G.bloodMoonWarning = false;
+  chests = chests.filter(c=>!c.open);
+  if(chests.length<16){ addChest(); addChest(); }
+  if(G.day%getYearLength()!==0){
+    showToast(G.day%7===0
+      ? '第 '+G.day+' 天 · 今夜将出现血月，做好准备！'
+      : '第 '+G.day+' 天开始', G.day%7===0?'#ff8b8b':'#ffe680');
+  }
+}
+
+function setDeveloperTime(dayTime){
+  if(!devModeEnabled||!Number.isFinite(dayTime)) return;
+  G.dayTime=clamp(dayTime,0,0.999);
+  const hour=(G.dayTime*24+6)%24;
+  showToast('已跳转到'+(hour<8?'清晨':hour<16?'白天':hour<20?'黄昏':'午夜'),'#a8e0ff');
+}
+
+function skipDeveloperDay(){
+  if(!devModeEnabled) return;
+  G.dayTime=0.02;
+  advanceGameDay();
 }
 
 function playerMoveBlend(){
@@ -333,19 +350,28 @@ function updatePlayer(dt){
     (G.inCave ? 0.04 : 0) + (p.bodyTemp>39?0.18:0)) *
     (rules.thirstRate===undefined?1:rules.thirstRate);
   p.thirst = Math.max(0,p.thirst);
-  if (p.hunger <= 0){
+  if (p.hunger <= 0 && !(devModeEnabled&&devInvincible)){
     p.hunger = 0;
     p.hp -= dt * 3.2;
   }
-  if (p.thirst <= 0){
+  if (p.thirst <= 0 && !(devModeEnabled&&devInvincible)){
     p.hp -= dt * 2.4;
   }
   if(p.thirst<18) p.stamina=Math.min(p.stamina,Math.max(0,p.maxStamina*0.55));
   if(p.bodyTemp<34) p.stamina=Math.min(p.stamina,Math.max(0,p.maxStamina*0.6));
-  if(p.bodyTemp<32) p.hp-=dt*1.8;
-  if(p.bodyTemp>42) p.hp-=dt*0.6;
+  if(!(devModeEnabled&&devInvincible)){
+    if(p.bodyTemp<32) p.hp-=dt*1.8;
+    if(p.bodyTemp>42) p.hp-=dt*0.6;
+  }
   if(getSeasonIndex()===3)p.hunger-=dt*0.12;
-  if (p.hp <= 0){ p.hp = 0; gameOver(); }
+  if(devModeEnabled&&devMaintainFullStatus){
+    p.hp=p.maxHp;
+    p.hunger=p.maxHunger;
+    p.thirst=p.maxThirst;
+    p.stamina=p.maxStamina;
+  }
+  if(devModeEnabled&&(devInvincible||devMaintainFullStatus)) p.hp=p.maxHp;
+  else if (p.hp <= 0){ p.hp = 0; gameOver(); }
 
   // 连续攻击
   if ((mouse.down || (keys['Space'] && !(window.Pixel3D && Pixel3D.active()))) &&

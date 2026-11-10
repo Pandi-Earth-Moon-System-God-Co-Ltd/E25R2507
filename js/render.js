@@ -439,6 +439,7 @@ function drawHudAndPanels(){
   if (panel === 'machine') drawMachinePanel();
   if (panel === 'trade') drawTradePanel();
   if (panel === 'settings'){ uiButtons=[]; drawSettingsPanel(); }
+  if (panel === 'developer'){ uiButtons=[]; drawDeveloperPanel(); }
 
   if (G.gameOver) drawGameOver();
   if (panel === 'title') drawMainMenu();

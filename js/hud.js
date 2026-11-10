@@ -447,6 +447,10 @@ function drawHints(){
   ctx.fillStyle = 'rgba(235,235,235,0.9)';
   ctx.fillText(hint, W/2, H - 65);
   ctx.textAlign = 'left';
+  if(devModeEnabled){
+    R(W-92,4,88,12,'rgba(28,38,28,0.88)');
+    txt('DEV 已开启 · F4',W-48,6,{size:6,bold:true,color:'#b7e88b',align:'center'});
+  }
 }
 
 function drawWorldActionHint(){
