@@ -287,17 +287,6 @@ run('reset + 首帧', () => {
   ctx.render();
 });
 
-run('玩家眼镜外观绘制', () => {
-  const appearance = T.player.appearance;
-  const previous = appearance.faceDetail;
-  appearance.faceDetail = 3;
-  try {
-    ctx.drawPlayer(T.player.x, T.player.y);
-  } finally {
-    appearance.faceDetail = previous;
-  }
-});
-
 const panels = ['title', 'pause', 'inventory', 'craft', 'tech', 'character', 'saves', 'growth', 'skills', 'ach', 'guide', 'settings', 'machine', 'trade'];
 for (const name of panels) {
   run(`面板 ${name}`, () => {
@@ -315,6 +304,20 @@ for (const name of panels) {
     for (let frame = 0; frame < 3; frame++) ctx.render();
   });
 }
+
+run('人物外观：所有面部细节均可绘制', () => {
+  const previous = T.player.appearance.faceDetail;
+  T.panel = 'character';
+  try {
+    const count = vm.runInContext('PLAYER_CUSTOMIZATION.faceDetail.length', sandbox);
+    for (let faceDetail = 0; faceDetail < count; faceDetail++) {
+      T.player.appearance.faceDetail = faceDetail;
+      ctx.render();
+    }
+  } finally {
+    T.player.appearance.faceDetail = previous;
+  }
+});
 
 run('科技线：六个时代与机器', () => {
   const info = vm.runInContext(`(() => {

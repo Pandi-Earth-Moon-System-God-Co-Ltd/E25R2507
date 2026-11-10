@@ -227,18 +227,6 @@ function playerMoveBlend(){
 
 function updatePlayer(dt){
   const p = player;
-  const invalidMotion=['x','y','vx','vy','speed'].filter(key=>
-    !Number.isFinite(p[key])||(key==='speed'&&p[key]<0));
-  if(invalidMotion.length){
-    console.error('[Pixel Survival] Invalid player motion state',{
-      fields:invalidMotion,x:p.x,y:p.y,vx:p.vx,vy:p.vy,speed:p.speed,
-    });
-    if(!Number.isFinite(p.x))p.x=TILE/2;
-    if(!Number.isFinite(p.y))p.y=TILE/2;
-    if(!Number.isFinite(p.vx))p.vx=0;
-    if(!Number.isFinite(p.vy))p.vy=0;
-    if(!Number.isFinite(p.speed)||p.speed<0)p.speed=84;
-  }
   updateEffects(dt);
   updateCombat(dt);
   if (!Number.isFinite(p.jumpHeight)) p.jumpHeight = 0;
@@ -747,18 +735,6 @@ function updateParticles(dt, paused){
 function updateTorches(dt){ /* 已在 updateParticles 处理动画 */ }
 
 function updateCamera(dt){
-  if(!Number.isFinite(player.x)||!Number.isFinite(player.y)){
-    console.error('[Pixel Survival] Invalid player position before camera update',{
-      x:player.x,y:player.y,
-    });
-    if(!Number.isFinite(player.x))player.x=TILE/2;
-    if(!Number.isFinite(player.y))player.y=TILE/2;
-  }
-  if(!Number.isFinite(cam.x)||!Number.isFinite(cam.y)){
-    console.error('[Pixel Survival] Invalid camera position',{
-      x:cam.x,y:cam.y,
-    });
-  }
   cam.x=player.x;
   cam.y=player.y;
   updateWorldChunks();

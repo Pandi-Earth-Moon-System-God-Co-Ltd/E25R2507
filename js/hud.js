@@ -259,11 +259,12 @@ function drawFirstPersonHand(){
   const appearance = p.appearance || DEFAULT_PLAYER_APPEARANCE;
   const outfit = PLAYER_CUSTOMIZATION.outfit[appearance.outfit] || PLAYER_CUSTOMIZATION.outfit[0];
   const skin = PLAYER_CUSTOMIZATION.skin[appearance.skin] || PLAYER_CUSTOMIZATION.skin[0];
-  const id = p.toolId || p.weapon || hotbar[selectedHotbar];
+  const id = hotbar[selectedHotbar];
   const gait = playerMoveBlend();
   const stride = Math.sin(p.walkPhase * 0.16) * gait;
   const attackT = p.swing > 0 ? 1 - p.swing / ATTACK_ANIM_DURATION : -1;
   const attackPhase = attackT >= 0 ? Math.sin(clamp(attackT, 0, 1) * Math.PI * 2) : 0;
+  const isWeaponOrTool = !!(id && ITEMS[id] && ['weapon', 'tool'].includes(ITEMS[id].kind));
   const scale = clamp(H / 270, 0.75, 1.6);
   const length = 150 * scale;
   const width = 42 * scale;
@@ -292,10 +293,19 @@ function drawFirstPersonHand(){
   ctx.fillStyle = skin.light || skin.base;
   ctx.fillRect(-width / 2 + 2 * scale, -length + scale, 9 * scale, 12 * scale);
   if (id && ITEMS[id]){
+    const item = ITEMS[id];
+    const itemSize = (isWeaponOrTool ? 90 : 64) * scale;
+    const grip = item.firearm ? { x:0.38, y:0.65 } : item.icon === 'sword' ? { x:0.66, y:0.84 } : { x:0.5, y:0.82 };
     ctx.save();
-    ctx.translate(0, -length + 10 * scale);
+    const itemLift = ((isWeaponOrTool ? 20 : 0) + (item.icon === 'sword' ? 35 : 0)) * scale;
+    const swordOffsetX = item.icon === 'sword' ? 15 * scale : 0;
+    const swordOffsetY = item.icon === 'sword' ? 10 * scale : 0;
+    ctx.translate(
+      -Math.sin(rotation) * itemLift + Math.cos(rotation) * swordOffsetX + Math.sin(rotation) * swordOffsetY,
+      -length + 8 * scale - Math.cos(rotation) * itemLift - Math.sin(rotation) * swordOffsetX + Math.cos(rotation) * swordOffsetY
+    );
     ctx.rotate(-0.25);
-    drawItemIcon(ctx, id, -15 * scale, -27 * scale, 30 * scale);
+    drawItemIcon(ctx, id, -grip.x * itemSize, -grip.y * itemSize, itemSize);
     ctx.restore();
   }
   ctx.restore();

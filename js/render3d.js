@@ -1477,7 +1477,7 @@
     const base = groundAt(p.x, p.y);
     const yaw = facingYaw(p.aimX || 0, p.aimY || 1);
     const gait = playerMoveBlend();
-    const stride = Math.sin(p.walkPhase * 2.5) * gait;
+    const stride = Math.sin(p.walkPhase * 3.2) * gait;
     const bob = Math.abs(stride) * 0.03 + Math.sin(now() * 3) * 0.012 * (1 - gait);
     const attack = p.swing > 0 ? 1 - p.swing / ATTACK_ANIM_DURATION : -1;
     const punch = attack >= 0 ? Math.sin(Math.min(1, attack) * Math.PI) : 0;
@@ -1488,15 +1488,29 @@
     modelAt(x, z, base + (p.jumpHeight || 0) + bob, yaw, 1);
     // 模型部件
     resetO(); O.light = 0.94;
-    O.rotX = stride * 0.55;
-    lbox(-0.13, 0.36, 0, 0.2, 0.72, 0.24, rgb(outfit.shadow));
-    O.rotX = -stride * 0.55;
-    lbox(0.13, 0.36, 0, 0.2, 0.72, 0.24, rgb(outfit.shadow));
+    const legRootY = 0.72;
+    const legHalfLength = 0.36;
+    const leftLegAngle = stride * 0.55;
+    const rightLegAngle = -stride * 0.55;
+    const leftLegY = legRootY - legHalfLength * Math.cos(leftLegAngle);
+    const leftLegZ = -legHalfLength * Math.sin(leftLegAngle);
+    const rightLegY = legRootY - legHalfLength * Math.cos(rightLegAngle);
+    const rightLegZ = -legHalfLength * Math.sin(rightLegAngle);
+    O.rotX = leftLegAngle;
+    lbox(-0.13, leftLegY, leftLegZ, 0.2, 0.72, 0.24, rgb(outfit.shadow));
+    O.rotX = rightLegAngle;
+    lbox(0.13, rightLegY, rightLegZ, 0.2, 0.72, 0.24, rgb(outfit.shadow));
     resetO(); O.light = 0.8;
-    O.rotX = stride * 0.55;
-    lbox(-0.13, 0.06, 0.04, 0.22, 0.14, 0.3, rgb('#4a3a2e'));
-    O.rotX = -stride * 0.55;
-    lbox(0.13, 0.06, 0.04, 0.22, 0.14, 0.3, rgb('#4a3a2e'));
+    const footOffsetY = 0.06 - legRootY;
+    const footOffsetZ = 0.04;
+    const leftFootY = legRootY + footOffsetY * Math.cos(leftLegAngle) - footOffsetZ * Math.sin(leftLegAngle);
+    const leftFootZ = footOffsetY * Math.sin(leftLegAngle) + footOffsetZ * Math.cos(leftLegAngle);
+    const rightFootY = legRootY + footOffsetY * Math.cos(rightLegAngle) - footOffsetZ * Math.sin(rightLegAngle);
+    const rightFootZ = footOffsetY * Math.sin(rightLegAngle) + footOffsetZ * Math.cos(rightLegAngle);
+    O.rotX = leftLegAngle;
+    lbox(-0.13, leftFootY, leftFootZ, 0.22, 0.14, 0.3, rgb('#4a3a2e'));
+    O.rotX = rightLegAngle;
+    lbox(0.13, rightFootY, rightFootZ, 0.22, 0.14, 0.3, rgb('#4a3a2e'));
     // 身体
     resetO(); O.light = 1;
     lbox(0, 1.02, 0, 0.5, 0.58, 0.3, rgb(outfit.base));
@@ -1504,14 +1518,31 @@
     lbox(0, 1.12, 0.16, 0.34, 0.3, 0.04, rgb(outfit.light));
     // 手臂
     resetO(); O.light = 0.98;
-    O.rotX = -stride * 0.5 - punch * 1.5 - drawBack * 0.85;
-    lbox(-0.33, 1.05, punch * 0.25 - drawBack * 0.2, 0.16, 0.5, 0.18, rgb(outfit.base));
-    O.rotX = stride * 0.5 - punch * 0.4 - drawBack * 0.85;
-    lbox(0.33, 1.05, -drawBack * 0.2, 0.16, 0.5, 0.18, rgb(outfit.base));
+    const leftArmAngle = -stride * 0.5 - punch * 1.5 - drawBack * 0.85;
+    const rightArmAngle = stride * 0.5 - punch * 0.4 - drawBack * 0.85;
+    const shoulderY = 1.3;
+    const shoulderZ = -drawBack * 0.2;
+    const armHalfLength = 0.25;
+    const handOffset = 0.28;
+    const handCenterOffset = armHalfLength + handOffset;
+    const leftArmY = shoulderY - armHalfLength * Math.cos(leftArmAngle);
+    const leftArmZ = shoulderZ - armHalfLength * Math.sin(leftArmAngle);
+    const rightArmY = shoulderY - armHalfLength * Math.cos(rightArmAngle);
+    const rightArmZ = shoulderZ - armHalfLength * Math.sin(rightArmAngle);
+    O.rotX = leftArmAngle;
+    lbox(-0.33, leftArmY, leftArmZ, 0.16, armHalfLength * 2, 0.18, rgb(outfit.base));
+    O.rotX = rightArmAngle;
+    lbox(0.33, rightArmY, rightArmZ, 0.16, armHalfLength * 2, 0.18, rgb(outfit.base));
     // 模型部件
     resetO(); O.light = 1;
-    lbox(-0.33, 0.78 - punch * 0.1, punch * 0.5 - drawBack * 0.34, 0.15, 0.15, 0.15, rgb(skin.base));
-    lbox(0.33, 0.78, -drawBack * 0.34, 0.15, 0.15, 0.15, rgb(skin.base));
+    O.rotX = leftArmAngle;
+    lbox(-0.33, shoulderY - handCenterOffset * Math.cos(leftArmAngle),
+      shoulderZ - handCenterOffset * Math.sin(leftArmAngle),
+      0.15, 0.15, 0.15, rgb(skin.base));
+    O.rotX = rightArmAngle;
+    lbox(0.33, shoulderY - handCenterOffset * Math.cos(rightArmAngle),
+      shoulderZ - handCenterOffset * Math.sin(rightArmAngle),
+      0.15, 0.15, 0.15, rgb(skin.base));
     // 模型部件
     resetO(); O.light = 1;
     lbox(0, 1.5, 0, 0.4, 0.4, 0.4, rgb(skin.base));
