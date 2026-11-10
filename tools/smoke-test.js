@@ -287,6 +287,17 @@ run('reset + 首帧', () => {
   ctx.render();
 });
 
+run('玩家眼镜外观绘制', () => {
+  const appearance = T.player.appearance;
+  const previous = appearance.faceDetail;
+  appearance.faceDetail = 3;
+  try {
+    ctx.drawPlayer(T.player.x, T.player.y);
+  } finally {
+    appearance.faceDetail = previous;
+  }
+});
+
 const panels = ['title', 'pause', 'inventory', 'craft', 'tech', 'character', 'saves', 'growth', 'skills', 'ach', 'guide', 'settings', 'machine', 'trade'];
 for (const name of panels) {
   run(`面板 ${name}`, () => {

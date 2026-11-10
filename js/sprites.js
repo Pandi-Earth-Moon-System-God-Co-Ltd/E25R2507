@@ -436,10 +436,10 @@ function drawPlayer(x, y){
   }else if(appearance.faceDetail===2){
     R(x+1,y-24,1,2,'#a94e4a');R(x+2,y-23,2,1,'#a94e4a');
   }else if(appearance.faceDetail===3){
-    R(x-4+eyeShift,y-23,4,3,'rgba(176,216,218,0.4)');
-    R(x+1+eyeShift,y-23,4,3,'rgba(176,216,218,0.4)');
-    R(x-1+eyeShift,y-22,2,1,'#b7d8da');
-    R(x-5+eyeShift,y-22,1,1,'#d2ece8');R(x+5+eyeShift,y-22,1,1,'#d2ece8');
+    R(x-4+eyeShiftX,y-23,4,3,'rgba(176,216,218,0.4)');
+    R(x+1+eyeShiftX,y-23,4,3,'rgba(176,216,218,0.4)');
+    R(x-1+eyeShiftX,y-22,2,1,'#b7d8da');
+    R(x-5+eyeShiftX,y-22,1,1,'#d2ece8');R(x+5+eyeShiftX,y-22,1,1,'#d2ece8');
   }
 
   if(appearance.hat===1){
