@@ -1477,7 +1477,7 @@
     const base = groundAt(p.x, p.y);
     const yaw = facingYaw(p.aimX || 0, p.aimY || 1);
     const gait = playerMoveBlend();
-    const stride = Math.sin(p.walkPhase * 2.5) * gait;
+    const stride = Math.sin(p.walkPhase * 3.2) * gait;
     const bob = Math.abs(stride) * 0.03 + Math.sin(now() * 3) * 0.012 * (1 - gait);
     const attack = p.swing > 0 ? 1 - p.swing / ATTACK_ANIM_DURATION : -1;
     const punch = attack >= 0 ? Math.sin(Math.min(1, attack) * Math.PI) : 0;
