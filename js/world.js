@@ -407,7 +407,7 @@ function reset(mapDefinition=null){
     hp: 100, maxHp: 100,
     hunger: 100, maxHunger: 100, thirst:100, maxThirst:100, bodyTemp:36.5,
     stamina: 100, maxStamina: 100,
-    speed: 84,
+    speed: 100,
     aimX: 0, aimY: 1,
     atkCd: 0, swing: 0, combo:0, comboWindow:0, attackAngle:Math.PI/2,
     damage: 2, range: BASE_MELEE_REACH, atkSpeed: 0.36,
@@ -484,7 +484,7 @@ function recalcEquipment(){
   player.miningPower = tool ? ITEMS[tool].mine : 0;
   player.maxHp = 100 + G.growth.ranks.vitality*15;
   player.maxStamina = 100 + G.growth.ranks.endurance*10;
-  player.speed = 84 * (1+G.growth.ranks.agility*0.04) * (G.effects.haste>0?1.25:1);
+  player.speed = 100 * (1+G.growth.ranks.agility*0.04) * (G.effects.haste>0?1.25:1);
   player.hp = Math.min(player.hp,player.maxHp);
   player.stamina = Math.min(player.stamina,player.maxStamina);
 }

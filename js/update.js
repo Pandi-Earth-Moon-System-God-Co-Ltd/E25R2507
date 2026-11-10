@@ -273,7 +273,7 @@ function updatePlayer(dt){
       const worldY=-sin*inputRight-cos*inputUp;
       mx=worldX; my=worldY;
     }
-    p.walkPhase += dt * (wantSprint ? 4.5 : 3);
+    p.walkPhase += dt * (wantSprint ? 6 : 4);
     p.facingAngle=Math.atan2(my,mx);
     if (mx !== 0) p.facing = mx > 0 ? 1 : -1;
   }

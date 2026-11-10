@@ -261,7 +261,7 @@ function drawFirstPersonHand(){
   const skin = PLAYER_CUSTOMIZATION.skin[appearance.skin] || PLAYER_CUSTOMIZATION.skin[0];
   const id = hotbar[selectedHotbar];
   const gait = playerMoveBlend();
-  const stride = Math.sin(p.walkPhase * 0.16) * gait;
+  const stride = Math.sin(p.walkPhase * 2.5) * gait;
   const attackT = p.swing > 0 ? 1 - p.swing / ATTACK_ANIM_DURATION : -1;
   const attackPhase = attackT >= 0 ? Math.sin(clamp(attackT, 0, 1) * Math.PI * 2) : 0;
   const isWeaponOrTool = !!(id && ITEMS[id] && ['weapon', 'tool'].includes(ITEMS[id].kind));
