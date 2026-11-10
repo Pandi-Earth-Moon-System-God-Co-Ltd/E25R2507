@@ -58,8 +58,8 @@ function drawSettingsPanel(){
   /* ── 左列 ── */
   let y = py+22;
   section(colA, y, '渲染引擎');
-  optionButton(colA, y+14, 95, '3D 体素（WebGL）', gfx.engine==='3d' && threeDSupported, () => {
-    PixelGfx.set({ engine:'3d' }, { toast:'已切换到 3D 体素渲染' });
+  optionButton(colA, y+14, 95, '3D 像素（WebGL）', gfx.engine==='3d' && threeDSupported, () => {
+    PixelGfx.set({ engine:'3d' }, { toast:'已切换到 3D 像素渲染' });
   }, !threeDSupported);
   optionButton(colA+101, y+14, 99, '2.5D 像素（Canvas）', gfx.engine==='2d' || !threeDSupported, () => {
     PixelGfx.set({ engine:'2d' }, { toast:'已切换到 2.5D 像素渲染' });

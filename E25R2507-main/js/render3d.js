@@ -1504,14 +1504,31 @@
     lbox(0, 1.12, 0.16, 0.34, 0.3, 0.04, rgb(outfit.light));
     // 手臂
     resetO(); O.light = 0.98;
-    O.rotX = -stride * 0.5 - punch * 1.5 - drawBack * 0.85;
-    lbox(-0.33, 1.05, punch * 0.25 - drawBack * 0.2, 0.16, 0.5, 0.18, rgb(outfit.base));
-    O.rotX = stride * 0.5 - punch * 0.4 - drawBack * 0.85;
-    lbox(0.33, 1.05, -drawBack * 0.2, 0.16, 0.5, 0.18, rgb(outfit.base));
+    const leftArmAngle = -stride * 0.5 - punch * 1.5 - drawBack * 0.85;
+    const rightArmAngle = stride * 0.5 - punch * 0.4 - drawBack * 0.85;
+    const shoulderY = 1.3;
+    const shoulderZ = -drawBack * 0.2;
+    const armHalfLength = 0.25;
+    const handOffset = 0.28;
+    const handCenterOffset = armHalfLength + handOffset;
+    const leftArmY = shoulderY - armHalfLength * Math.cos(leftArmAngle);
+    const leftArmZ = shoulderZ - armHalfLength * Math.sin(leftArmAngle);
+    const rightArmY = shoulderY - armHalfLength * Math.cos(rightArmAngle);
+    const rightArmZ = shoulderZ - armHalfLength * Math.sin(rightArmAngle);
+    O.rotX = leftArmAngle;
+    lbox(-0.33, leftArmY, leftArmZ, 0.16, armHalfLength * 2, 0.18, rgb(outfit.base));
+    O.rotX = rightArmAngle;
+    lbox(0.33, rightArmY, rightArmZ, 0.16, armHalfLength * 2, 0.18, rgb(outfit.base));
     // 模型部件
     resetO(); O.light = 1;
-    lbox(-0.33, 0.78 - punch * 0.1, punch * 0.5 - drawBack * 0.34, 0.15, 0.15, 0.15, rgb(skin.base));
-    lbox(0.33, 0.78, -drawBack * 0.34, 0.15, 0.15, 0.15, rgb(skin.base));
+    O.rotX = leftArmAngle;
+    lbox(-0.33, shoulderY - handCenterOffset * Math.cos(leftArmAngle),
+      shoulderZ - handCenterOffset * Math.sin(leftArmAngle),
+      0.15, 0.15, 0.15, rgb(skin.base));
+    O.rotX = rightArmAngle;
+    lbox(0.33, shoulderY - handCenterOffset * Math.cos(rightArmAngle),
+      shoulderZ - handCenterOffset * Math.sin(rightArmAngle),
+      0.15, 0.15, 0.15, rgb(skin.base));
     // 模型部件
     resetO(); O.light = 1;
     lbox(0, 1.5, 0, 0.4, 0.4, 0.4, rgb(skin.base));
