@@ -1488,15 +1488,29 @@
     modelAt(x, z, base + (p.jumpHeight || 0) + bob, yaw, 1);
     // 模型部件
     resetO(); O.light = 0.94;
-    O.rotX = stride * 0.55;
-    lbox(-0.13, 0.36, 0, 0.2, 0.72, 0.24, rgb(outfit.shadow));
-    O.rotX = -stride * 0.55;
-    lbox(0.13, 0.36, 0, 0.2, 0.72, 0.24, rgb(outfit.shadow));
+    const legRootY = 0.72;
+    const legHalfLength = 0.36;
+    const leftLegAngle = stride * 0.55;
+    const rightLegAngle = -stride * 0.55;
+    const leftLegY = legRootY - legHalfLength * Math.cos(leftLegAngle);
+    const leftLegZ = -legHalfLength * Math.sin(leftLegAngle);
+    const rightLegY = legRootY - legHalfLength * Math.cos(rightLegAngle);
+    const rightLegZ = -legHalfLength * Math.sin(rightLegAngle);
+    O.rotX = leftLegAngle;
+    lbox(-0.13, leftLegY, leftLegZ, 0.2, 0.72, 0.24, rgb(outfit.shadow));
+    O.rotX = rightLegAngle;
+    lbox(0.13, rightLegY, rightLegZ, 0.2, 0.72, 0.24, rgb(outfit.shadow));
     resetO(); O.light = 0.8;
-    O.rotX = stride * 0.55;
-    lbox(-0.13, 0.06, 0.04, 0.22, 0.14, 0.3, rgb('#4a3a2e'));
-    O.rotX = -stride * 0.55;
-    lbox(0.13, 0.06, 0.04, 0.22, 0.14, 0.3, rgb('#4a3a2e'));
+    const footOffsetY = 0.06 - legRootY;
+    const footOffsetZ = 0.04;
+    const leftFootY = legRootY + footOffsetY * Math.cos(leftLegAngle) - footOffsetZ * Math.sin(leftLegAngle);
+    const leftFootZ = footOffsetY * Math.sin(leftLegAngle) + footOffsetZ * Math.cos(leftLegAngle);
+    const rightFootY = legRootY + footOffsetY * Math.cos(rightLegAngle) - footOffsetZ * Math.sin(rightLegAngle);
+    const rightFootZ = footOffsetY * Math.sin(rightLegAngle) + footOffsetZ * Math.cos(rightLegAngle);
+    O.rotX = leftLegAngle;
+    lbox(-0.13, leftFootY, leftFootZ, 0.22, 0.14, 0.3, rgb('#4a3a2e'));
+    O.rotX = rightLegAngle;
+    lbox(0.13, rightFootY, rightFootZ, 0.22, 0.14, 0.3, rgb('#4a3a2e'));
     // 身体
     resetO(); O.light = 1;
     lbox(0, 1.02, 0, 0.5, 0.58, 0.3, rgb(outfit.base));
