@@ -67,6 +67,15 @@ function drawIsoTile(tx,ty,shakeX,shakeY){
       ctx.fillRect(sx-3,sy-2,2,2);
     }
   }
+  if(isGrazedTile(tx,ty,G.worldLayer||'surface')){
+    ctx.beginPath();
+    ctx.moveTo(sx,sy-halfH);ctx.lineTo(sx+halfW,sy);
+    ctx.lineTo(sx,sy+halfH);ctx.lineTo(sx-halfW,sy);
+    ctx.closePath();
+    ctx.fillStyle='#8a6642';ctx.fill();
+    ctx.fillStyle='rgba(70,49,32,0.2)';
+    ctx.fillRect(sx-3,sy-1,2,1);ctx.fillRect(sx+2,sy+1,2,1);
+  }
   ctx.restore();
 }
 

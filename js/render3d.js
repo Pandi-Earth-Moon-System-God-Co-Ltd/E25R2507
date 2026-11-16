@@ -688,9 +688,12 @@
         const ao = tallest > h ? clamp(1 - (tallest - h) * 0.16, 0.72, 1) : 1;
         const variation = 0.94 + hash2(tx * 31, ty * 17) * 0.12;
 
-        tmpO.top = style.top; tmpO.side = style.side;
+        const grazed=isGrazedTile(tx,ty,layer);
+        tmpO.top = grazed ? CELL.dirt : style.top;
+        tmpO.side = grazed ? CELL.dirt : style.side;
         tmpO.rotY = 0; tmpO.rotX = 0;
         tmpO.light = ao * variation;
+        if(grazed)tmpO.light=Math.min(1.15,tmpO.light*1.12);
         tmpO.alpha = 1; tmpO.emiss = 0; tmpO.wave = 0;
         pushCube(op, wx, h / 2, wz, 1, Math.max(0.2, h), 1, style.tint, tmpO);
 
@@ -1362,6 +1365,7 @@
   }
 
   function animalPalette(type){
+    if (type === 'duck') return { body: rgb('#f2ead5'), head: rgb('#39784e'), leg: rgb('#d98b42'), beak: rgb('#e5a84c') };
     if (type === 'chicken') return { body: rgb('#e5dfc9'), head: rgb('#f1e7cf'), leg: rgb('#c28b50'), beak: rgb('#d7a958') };
     if (type === 'sheep') return { body: rgb('#eee8d8'), head: rgb('#a78e82'), leg: rgb('#615348'), beak: rgb('#322c2c') };
     return { body: rgb('#9b6157'), head: rgb('#86534c'), leg: rgb('#59403a'), beak: rgb('#62433d') };
@@ -1369,13 +1373,23 @@
 
   function drawAnimal(animal, isPet){
     const x = animal.x / TILE, z = animal.y / TILE;
-    const base = groundAt(animal.x, animal.y);
+    const base = animal.type === 'duck' ? 0.93 + Math.sin(animal.wobble || 0) * 0.025 : groundAt(animal.x, animal.y);
     const palette = animalPalette(animal.type);
     const yaw = facingYaw(Math.cos(animal.facing || animal.direction || 0), Math.sin(animal.facing || animal.direction || 0));
-    const scale = (animal.age < 1 ? 0.62 : 1) * (animal.type === 'chicken' ? 0.8 : 1);
+    const scale = (animal.age < 1 ? 0.62 : 1) * (animal.type === 'chicken' || animal.type === 'duck' ? 0.8 : 1);
     const gait = animal.walking ? Math.sin(animal.wobble || 0) : 0;
     modelAt(x, z, base, yaw, scale);
-    if (animal.type === 'chicken'){
+    if (animal.type === 'duck'){
+      resetO(); O.light = 1;
+      lbox(0, 0.28, 0, 0.5, 0.3, 0.72, palette.body);
+      lbox(0, 0.54, 0.24, 0.27, 0.27, 0.25, palette.head);
+      lbox(0, 0.5, 0.42, 0.22, 0.08, 0.2, palette.beak);
+      resetO(); O.light = 1;
+      O.rotX = gait * 0.35;
+      lbox(-0.2, 0.08, 0, 0.08, 0.08, 0.28, palette.leg);
+      O.rotX = -gait * 0.35;
+      lbox(0.2, 0.08, 0, 0.08, 0.08, 0.28, palette.leg);
+    }else if (animal.type === 'chicken'){
       resetO(); O.light = 1;
       lbox(0, 0.32, 0, 0.42, 0.38, 0.56, palette.body);
       lbox(0, 0.62, 0.24, 0.24, 0.24, 0.24, palette.head);
@@ -1387,10 +1401,11 @@
       O.rotX = -gait * 0.5;
       lbox(0.13, 0.09, 0, 0.06, 0.18, 0.06, palette.leg);
     }else if (animal.type === 'sheep'){
+      const grazeDip=animal.grazing?Math.sin((animal.wobble||0)*0.7)*0.07:0;
       resetO(); O.light = 1;
       lbox(0, 0.46, 0, 0.62, 0.52, 0.9, palette.body);
       lbox(0, 0.74, -0.08, 0.68, 0.2, 0.86, rgb('#fff9eb'));
-      lbox(0, 0.56, 0.52, 0.3, 0.3, 0.3, palette.head);
+      lbox(0, 0.56 - grazeDip, 0.52, 0.3, 0.3, 0.3, palette.head);
       resetO(); O.emiss = 0.05;
       lbox(-0.07, 0.6, 0.68, 0.06, 0.06, 0.04, rgb('#2a2626'));
       lbox(0.07, 0.6, 0.68, 0.06, 0.06, 0.04, rgb('#2a2626'));

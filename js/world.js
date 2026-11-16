@@ -87,9 +87,75 @@ function findRiverTileNear(x,y,range){
   return nearest;
 }
 
+function isDuckHabitat(tx,ty){
+  if(getWorldTerrainIndex(tx,ty,'surface')===4)return true;
+  for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)
+    if(getWorldTerrainIndex(tx+dx,ty+dy,'surface')===4)return true;
+  return false;
+}
+
 function findRiverWaterAt(x,y,playerRange=TILE*3){
   const target=findRiverTileNear(x,y,TILE*0.8);
   return target&&Math.hypot(target.x-player.x,target.y-player.y)<=playerRange?target:null;
+}
+
+function grazedTileKey(tx,ty,layer='surface'){
+  return layer+':'+tx+','+ty;
+}
+
+function isGrazedTile(tx,ty,layer='surface'){
+  return grazedTileLookup.has(grazedTileKey(tx,ty,layer));
+}
+
+function grazeGrassTile(tx,ty){
+  if((G.worldLayer||'surface')!=='surface'||getWorldTerrainIndex(tx,ty,'surface')!==0)return false;
+  const key=grazedTileKey(tx,ty);
+  if(grazedTileLookup.has(key))return false;
+  const patch={tx,ty,layer:'surface',regrowAt:G.day-1+G.dayTime+0.5};
+  grazedTiles.push(patch);
+  grazedTileLookup.set(key,patch);
+  if(window.Pixel3D&&typeof Pixel3D.invalidate==='function')Pixel3D.invalidate();
+  return true;
+}
+
+function updateGrazedTiles(){
+  const now=G.day-1+G.dayTime;
+  let changed=false;
+  for(let index=grazedTiles.length-1;index>=0;index--){
+    const patch=grazedTiles[index];
+    if(patch.regrowAt>now)continue;
+    grazedTileLookup.delete(grazedTileKey(patch.tx,patch.ty,patch.layer));
+    grazedTiles.splice(index,1);
+    changed=true;
+  }
+  if(changed&&window.Pixel3D&&typeof Pixel3D.invalidate==='function')Pixel3D.invalidate();
+}
+
+function restoreGrazedTiles(patches){
+  grazedTiles=patches.map(patch=>({...patch}));
+  grazedTileLookup.clear();
+  for(const patch of grazedTiles)
+    grazedTileLookup.set(grazedTileKey(patch.tx,patch.ty,patch.layer),patch);
+}
+
+function spawnDuckFlock(waterTiles,seed,chunkKey=null){
+  if(waterTiles.length<3)return;
+  const anchor=waterTiles[Math.floor(hash2(seed,waterTiles.length)*waterTiles.length)];
+  const nearby=waterTiles.filter(tile=>Math.hypot(tile.tx-anchor.tx,tile.ty-anchor.ty)<=4)
+    .sort((a,b)=>Math.hypot(a.tx-anchor.tx,a.ty-anchor.ty)-Math.hypot(b.tx-anchor.tx,b.ty-anchor.ty));
+  if(nearby.length<3)return;
+  const count=Math.min(3+Math.floor(hash2(seed+1,waterTiles.length)*2),nearby.length);
+  for(let index=0;index<count;index++){
+    const tile=nearby[index];
+    const jitter=hash2(tile.tx+seed,tile.ty-seed);
+    const homeX=anchor.tx*TILE+TILE/2,homeY=anchor.ty*TILE+TILE/2;
+    animals.push({x:tile.tx*TILE+TILE/2+(jitter-0.5)*4,
+      y:tile.ty*TILE+TILE/2+(hash2(tile.ty+seed,tile.tx-seed)-0.5)*4,
+      type:'duck',age:1,hp:3,love:0,breedCooldown:0,moveTimer:0.5+index*0.3,
+      direction:hash2(tile.ty,tile.tx)*Math.PI*2,wobble:jitter*6.28,
+      homeX,homeY,
+      ...(chunkKey?{_chunkKey:chunkKey}:{})});
+  }
 }
 
 function worldChunkKey(cx,cy,layer){
@@ -167,6 +233,14 @@ function generateInfiniteChunk(cx,cy,layer){
   }
   const key=worldChunkKey(cx,cy,layer);
   const animalsInChunk=[];
+  if(layer==='surface'&&hash2(cx+seed*7,cy+seed*11)<0.22){
+    const waterTiles=[];
+    for(let ty=yStart;ty<yStart+CHUNK_TILES;ty++)for(let tx=xStart;tx<xStart+CHUNK_TILES;tx++)
+      if(getWorldTerrainIndex(tx,ty,'surface')===4)waterTiles.push({tx,ty});
+    const before=animals.length;
+    spawnDuckFlock(waterTiles,cx*31+cy*47+seed);
+    for(const duck of animals.splice(before))animalsInChunk.push(duck);
+  }
   if(layer==='surface'&&hash2(cx+seed*3,cy-seed)<0.18){
     const tx=xStart+Math.floor(hash2(cx+41,cy+seed)*CHUNK_TILES);
     const ty=yStart+Math.floor(hash2(cx-17,cy-seed)*CHUNK_TILES);
@@ -234,6 +308,8 @@ function updateWorldChunks(){
 }
 
 function generateWorld(mapDefinition=null,worldSeed=137){
+  grazedTiles=[];
+  grazedTileLookup.clear();
   activeWorldSeed=Number.isInteger(worldSeed)?worldSeed:137;
   loadedChunkKeys=new Set();
   if(mapDefinition){
@@ -313,6 +389,10 @@ function spawnWildlife(){
     animals.push({x,y,type,age:1,hp:3,love:0,breedCooldown:0,moveTimer:0,
       direction:hash2(tx,ty)*Math.PI*2,wobble:hash2(ty,tx)*6.28});
   }
+  const waterTiles=[];
+  for(let ty=0;ty<MAP_H;ty++)for(let tx=0;tx<MAP_W;tx++)
+    if(worldTerrain[ty*MAP_W+tx]===4)waterTiles.push({tx,ty});
+  spawnDuckFlock(waterTiles,seed+947);
 }
 
 function seedlessWorldOffset(){return G&&Number.isInteger(G.worldSeed)?G.worldSeed:137;}

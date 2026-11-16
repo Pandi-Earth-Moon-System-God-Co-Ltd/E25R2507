@@ -76,19 +76,61 @@ function updateAnimals(dt){
     animal.wobble=(animal.wobble||0)+dt*5;
     animal.moveTimer=(animal.moveTimer||0)-dt;
     if(animal.moveTimer<=0){
-      animal.direction=hash2(Math.floor(G.time*3)+i,Math.floor(animal.x)) * Math.PI*2;
-      animal.moveTimer=1.5+hash2(i,Math.floor(G.time))*3.5;
+      animal.direction=hash2(Math.floor(G.time*2)+i,Math.floor(animal.x/TILE)) * Math.PI*2;
+      animal.moveTimer=2+hash2(i,Math.floor(G.time*2))*4;
     }
     if(!Number.isFinite(animal.facing))animal.facing=Number.isFinite(animal.direction)?animal.direction:0;
+    animal.walking=false;
+    animal.grazing=false;
+    const layer=G.worldLayer||'surface';
+    if(animal.type==='duck'){
+      if(!Number.isFinite(animal.homeX))animal.homeX=animal.x;
+      if(!Number.isFinite(animal.homeY))animal.homeY=animal.y;
+      if(Math.hypot(animal.homeX-animal.x,animal.homeY-animal.y)>TILE*4){
+        animal.direction=Math.atan2(animal.homeY-animal.y,animal.homeX-animal.x);
+        animal.moveTimer=Math.max(animal.moveTimer,1);
+      }
+    }
+    const tx=Math.floor(animal.x/TILE),ty=Math.floor(animal.y/TILE);
+    if(animal.type==='sheep'&&animal.age>=1&&layer==='surface'&&
+       getWorldTerrainIndex(tx,ty,'surface')===0&&!isGrazedTile(tx,ty,'surface')){
+      if(!Number.isFinite(animal.grazeCooldown))animal.grazeCooldown=2+hash2(i,Math.floor(animal.x))*6;
+      if(animal.grazingTime>0){
+        animal.grazingTime=Math.max(0,animal.grazingTime-dt);
+        animal.grazing=animal.grazingTime>0;
+        if(!animal.grazing){
+          grazeGrassTile(tx,ty);
+          animal.grazeCooldown=10+hash2(i,Math.floor(G.time))*14;
+        }
+      }else{
+        animal.grazeCooldown-=dt;
+        if(animal.grazeCooldown<=0){
+          animal.grazingTime=2.2;
+          animal.grazing=true;
+        }
+      }
+    }else if(animal.type==='sheep'){
+      animal.grazingTime=0;
+    }
     const turn=Math.atan2(Math.sin(animal.direction-animal.facing),Math.cos(animal.direction-animal.facing));
     animal.facing+=turn*Math.min(1,dt*4);
-    animal.walking=false;
     if(animal.age>=1){
-      const speed=animal.type==='chicken'?9:6;
+      const speed=animal.type==='chicken'?12:animal.type==='duck'?12:8;
       const nextX=animal.x+Math.cos(animal.facing)*speed*dt;
       const nextY=animal.y+Math.sin(animal.facing)*speed*dt;
       const withinMap=!G.mapId||(nextX>8&&nextX<WORLD_W-8&&nextY>8&&nextY<CAVE_LINE-TILE/2);
-      if(withinMap&&getWorldTerrainIndex(Math.floor(nextX/TILE),Math.floor(nextY/TILE),'surface')!==4){
+      const nextTileX=Math.floor(nextX/TILE),nextTileY=Math.floor(nextY/TILE);
+      const nextTerrain=getWorldTerrainIndex(nextTileX,nextTileY,'surface');
+      if(animal.grazing){
+        animal.walking=false;
+      }else if(animal.type==='duck'&&layer==='surface'&&!isDuckHabitat(nextTileX,nextTileY)){
+        const water=findRiverTileNear(animal.x,animal.y,TILE*5);
+        if(water)animal.direction=Math.atan2(water.y-animal.y,water.x-animal.x);
+        animal.moveTimer=1.5;
+      }else if(animal.type==='duck'&&layer!=='surface'){
+        animal.moveTimer=0;
+      }else if(withinMap&&((animal.type==='duck'&&isDuckHabitat(nextTileX,nextTileY))||
+          (animal.type!=='duck'&&nextTerrain!==4))){
         animal.x=nextX;animal.y=nextY;animal.walking=true;
       }else animal.moveTimer=0;
     }
@@ -163,6 +205,7 @@ function update(dt){
     G.dayTime -= 1;
     advanceGameDay();
   }
+  updateGrazedTiles();
   if (G.day % Math.min(7,getYearLength()) === 0 && G.dayTime >= 0.46 && !G.bloodMoonWarning){
     G.bloodMoon = true;
     G.bloodMoonWarning = true;

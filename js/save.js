@@ -50,6 +50,11 @@ function validateSaveShape(s){
       !s.G.tutorialDone.every(v => typeof v === 'boolean') ||
       !Number.isFinite(s.G.tutorialWood) || s.G.tutorialWood < 0 ||
       Object.entries(s.inv).some(([id,n]) => !ITEMS[id] || !Number.isInteger(n) || n < 0) ||
+      (s.grazedTiles!==undefined&&(!Array.isArray(s.grazedTiles)||s.grazedTiles.some(patch=>
+        !isRecord(patch)||!Number.isInteger(patch.tx)||!Number.isInteger(patch.ty)||
+        !Number.isFinite(patch.regrowAt)||patch.layer!=='surface'||
+        (s.G.mapId?(patch.tx<0||patch.tx>=MAP_W||patch.ty<0||patch.ty>=MAP_H):
+          (Math.abs(patch.tx*TILE)>1e9||Math.abs(patch.ty*TILE)>1e9)))))||
       (s.bagSlots !== undefined && (!Array.isArray(s.bagSlots) || s.bagSlots.length !== BAG_SLOTS ||
         s.bagSlots.some(id => id !== null && !ITEMS[id]) ||
         new Set(s.bagSlots.filter(Boolean)).size !== s.bagSlots.filter(Boolean).length)) ||
@@ -125,14 +130,14 @@ function validateSaveShape(s){
     throw new Error('年度首领数据无效');
   if(s.animals!==undefined&&(!Array.isArray(s.animals)||s.animals.some(animal=>
     !isRecord(animal)||!validCoordinate(animal.x,animal.y)||
-    !['chicken','sheep','boar'].includes(animal.type)||
+    !['chicken','sheep','boar','duck'].includes(animal.type)||
     !Number.isFinite(animal.age)||animal.age<0||animal.age>1||
     !Number.isFinite(animal.hp)||animal.hp<=0||
     !Number.isFinite(animal.love)||animal.love<0||
     !Number.isFinite(animal.breedCooldown)||animal.breedCooldown<0)))
     throw new Error('动物数据无效');
   if(s.pets!==undefined&&(!Array.isArray(s.pets)||s.pets.length>3||s.pets.some(pet=>
-    !isRecord(pet)||!validCoordinate(pet.x,pet.y)||!['chicken','sheep','boar'].includes(pet.type)||
+    !isRecord(pet)||!validCoordinate(pet.x,pet.y)||!['chicken','sheep','boar','duck'].includes(pet.type)||
     pet.tamed!==true||!['follow','stay'].includes(pet.mode)||
     !Number.isFinite(pet.age)||pet.age<0||pet.age>1||
     !Number.isFinite(pet.hp)||pet.hp<=0||
@@ -216,6 +221,7 @@ function prepareSaveData(rawState){
   if(!Number.isFinite(s.player.bodyTemp))s.player.bodyTemp=36.5;
   if(!Array.isArray(s.animals))s.animals=[];
   if(!Array.isArray(s.pets))s.pets=[];
+  if(!Array.isArray(s.grazedTiles))s.grazedTiles=[];
   for(const pet of s.pets){
     if(!['follow','stay'].includes(pet.mode))pet.mode='follow';
     if(!Number.isFinite(pet.attackCooldown))pet.attackCooldown=0;
@@ -342,7 +348,7 @@ function saveGame(manual = false, slot = 0){
     const state = prepareSaveData({version:21, savedAt:Date.now(), player, G, inv:invSnapshot, inventoryOrder,
       bagSlots: Array.isArray(bagSlots) ? bagSlots.slice() : Array(BAG_SLOTS).fill(null),
       hotbar, selectedHotbar, trees, rocks, bushes, pickups, enemies,animals,pets,
-      torches, placedBlocks, machines, belts, ruins, enemyShots, spawnTimer, chests, farmPlots, waterSources});
+      torches, placedBlocks, machines, belts, ruins, enemyShots, spawnTimer, chests, farmPlots, waterSources,grazedTiles});
     const serialized = JSON.stringify(state);
     localStorage.setItem(key, serialized);
     if (localStorage.getItem(key) !== serialized) throw new Error('存档写入校验失败');
@@ -391,6 +397,7 @@ function loadGame(slot = 0){
     enemies = s.enemies; animals=s.animals; pets=s.pets; torches = s.torches; placedBlocks = s.placedBlocks; machines=s.machines;
     belts=s.belts;ruins=s.ruins;farmPlots = s.farmPlots;
     enemyShots=s.enemyShots;chests=s.chests;
+    restoreGrazedTiles(s.grazedTiles);
     waterSources=[];
     G.worldLayer=G.worldLayer|| (G.inCave?'cave':'surface');
     G.inCave=G.worldLayer==='cave';

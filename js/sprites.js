@@ -161,18 +161,27 @@ function drawBush(b, x, y){
 function drawAnimal(animal,x,y){
   const scale=animal.age<1?0.65:1;
   const gait=animal.walking?Math.sin(animal.wobble||0):0;
-  const bob=animal.walking?Math.abs(gait)*0.3:Math.sin(animal.wobble||0)*0.15;
+  const bob=animal.type==='duck'?Math.sin(animal.wobble||0)*0.35:
+    animal.walking?Math.abs(gait)*0.3:Math.sin(animal.wobble||0)*0.15;
   const facing=projectedFacingAngle(animal.facing||animal.direction||0);
   const facingX=Math.round(Math.cos(facing)),facingY=Math.round(Math.sin(facing));
-  const [headX,headY]=[
+  const [headX,baseHeadY]=[
     [5,-11],[4,-9],[0,-8],[-4,-9],[-6,-11],[-4,-14],[0,-15],[4,-14],
   ][projectedFacingOctant(animal.facing||animal.direction||0)];
+  const headY=baseHeadY+(animal.type==='sheep'&&animal.grazing?3:0);
   ctx.save();
   ctx.translate(Math.round(x),Math.round(y+bob));
   ctx.scale(scale,scale);
   R(-8,1,16,3,'rgba(0,0,0,0.22)');
   const legOffsetX=Math.round(gait*facingX),legOffsetY=Math.round(gait*facingY);
-  if(animal.type==='chicken'){
+  if(animal.type==='duck'){
+    R(-7,-8,14,7,'#f2ead5');R(-5,-10,9,3,'#fff8e4');
+    R(headX-1,headY,4,5,'#39784e');R(headX+2,headY+2,4,2,'#e5a84c');
+    if(facingY>=0)R(headX,headY+1,1,1,'#302c29');
+    R(-4,-6,3,3,'#d7cdb5');R(2,-6,3,3,'#d7cdb5');
+    R(-4+legOffsetX,-1+legOffsetY,3,2,'#d98b42');
+    R(2-legOffsetX,-1-legOffsetY,3,2,'#d98b42');
+  }else if(animal.type==='chicken'){
     R(-5,-10,10,9,'#e5dfc9');R(-4,-11,7,3,'#fff8e4');
     R(headX-2,headY,5,5,'#f1e7cf');R(headX+2,headY+2,3,2,'#d7a958');
     R(headX-1,headY,2,2,'#bf5b51');

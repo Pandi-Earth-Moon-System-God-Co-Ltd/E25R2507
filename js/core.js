@@ -515,6 +515,8 @@ const RECIPES = [
    全局状态
    ══════════════════════════════════════════════════════════ */
 let trees, rocks, bushes, pickups, enemies, particles, texts, torches, placedBlocks, machines, belts, ruins, waterSources, animals, pets;
+let grazedTiles=[];
+const grazedTileLookup=new Map();
 let villagers=[],villageHouses=[],selectedVillager=null;
 let player, cam, inv, G;
 let caveEntrances = [];

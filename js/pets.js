@@ -62,4 +62,29 @@ function updatePets(dt){
     pet.attackCooldown=pet.type==='chicken'?1.2:1.55;
     skillDamageEnemy(enemy,targetIndex,damage,pet.facing);
   }
+  separatePets();
+}
+
+function separatePets(){
+  const minDistance=24;
+  for(let pass=0;pass<pets.length*2;pass++){
+    for(let i=0;i<pets.length;i++){
+      for(let j=i+1;j<pets.length;j++){
+        const first=pets[i],second=pets[j];
+        let dx=second.x-first.x,dy=second.y-first.y;
+        let distance=Math.hypot(dx,dy);
+        if(distance>=minDistance)continue;
+        if(distance<0.001){
+          const angle=(i*MAX_PETS+j+1)*Math.PI*2/7;
+          dx=Math.cos(angle)*0.001;
+          dy=Math.sin(angle)*0.001;
+          distance=0.001;
+        }
+        const push=(minDistance-distance)/2;
+        const offsetX=dx/distance*push,offsetY=dy/distance*push;
+        first.x-=offsetX;first.y-=offsetY;
+        second.x+=offsetX;second.y+=offsetY;
+      }
+    }
+  }
 }
