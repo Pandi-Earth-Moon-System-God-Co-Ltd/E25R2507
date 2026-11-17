@@ -515,6 +515,14 @@ function blockedByPlacedBlock(x, y, radius){
   )||isBlockedByCustomWater(x,y);
 }
 
+function damageCombatantsInRange(x,y,range,damage){
+  if(Math.hypot(player.x-x,player.y-y)<range)hurtPlayer(damage);
+  for(const pet of pets.slice()){
+    if(pet.layer===(G.worldLayer||'surface')&&Math.hypot(pet.x-x,pet.y-y)<range)
+      damagePet(pet,damage);
+  }
+}
+
 function updateEnemies(dt){
   const dark = G.inCave?Math.max(G.darkness,0.72):G.darkness;
   for (let i = enemies.length - 1; i >= 0; i--){
@@ -534,15 +542,31 @@ function updateEnemies(dt){
       e.burn = 0;
     }
 
-    const dx = player.x - e.x;
-    const dy = player.y - e.y;
-    const d = Math.hypot(dx, dy) || 1;
     const ranged = e.type === 'spitter';
     if(!Number.isFinite(e.wanderAngle))e.wanderAngle=Math.random()*Math.PI*2;
     if(!Number.isFinite(e.wanderTimer))e.wanderTimer=rnd(1.5,4);
     if(typeof e.alerted!=='boolean')e.alerted=!!e.boss;
     const noticeRange=e.boss?280:ranged?TILE*11:e.fast?TILE*10:TILE*9;
-    if(!e.alerted&&d<=noticeRange)e.alerted=true;
+    const playerDistance=Math.hypot(player.x-e.x,player.y-e.y);
+    let target=null,priorityPet=null,lowPriorityPet=null;
+    for(const pet of pets){
+      if(pet.layer!==(G.worldLayer||'surface'))continue;
+      const petDistance=Math.hypot(pet.x-e.x,pet.y-e.y);
+      if(petDistance>noticeRange)continue;
+      const petTarget={x:pet.x,y:pet.y,pet,distance:petDistance};
+      if(pet.type==='boar'||pet.type==='sheep'){
+        if(!priorityPet||petDistance<priorityPet.distance)priorityPet=petTarget;
+      }else{
+        const aggroWeight=pet.type==='duck'?0.55:0.4;
+        petTarget.priorityDistance=petDistance/aggroWeight;
+        if(!lowPriorityPet||petTarget.priorityDistance<lowPriorityPet.priorityDistance)
+          lowPriorityPet=petTarget;
+      }
+    }
+    if(priorityPet)target=priorityPet;
+    else if(lowPriorityPet&&lowPriorityPet.priorityDistance<playerDistance)target=lowPriorityPet;
+    else target={x:player.x,y:player.y,pet:null,distance:playerDistance};
+    if(!e.alerted&&(playerDistance<=noticeRange||target.pet))e.alerted=true;
 
     if(!e.alerted){
       e.wanderTimer-=dt;
@@ -564,6 +588,9 @@ function updateEnemies(dt){
       continue;
     }
 
+    const dx=target.x-e.x;
+    const dy=target.y-e.y;
+    const d=Math.hypot(dx,dy)||1;
     e.dashCd-=dt;
     const chargeRange=e.fast?TILE*6:TILE*4;
     if(!ranged&&e.dashCd<=0&&e.dashT<=0&&d<=chargeRange){
@@ -602,7 +629,7 @@ function updateEnemies(dt){
         e.wobble = (e.wobble || 0) + dt * 22;
         if (e.fuse >= 1.5){
           const blast = 62;
-          if (d < blast) hurtPlayer(e.damage * 2.4);
+          damageCombatantsInRange(e.x,e.y,blast,e.damage*2.4);
           // 爆炸掀掉周围的放置方块与耕地
           for (let b = placedBlocks.length - 1; b >= 0; b--){
             if (Math.hypot(placedBlocks[b].x - e.x, placedBlocks[b].y - e.y) < blast) placedBlocks.splice(b, 1);
@@ -628,8 +655,8 @@ function updateEnemies(dt){
       if (e.skillCd <= 0 && d < 170){
         e.skillCd = 6.5;
         if (d < 96){
-          hurtPlayer(e.damage * 1.8);
-          showToast('血月骑士 · 血爆！', '#ff8b8b');
+            damageCombatantsInRange(e.x,e.y,96,e.damage*1.8);
+            showToast('血月骑士 · 血爆！', '#ff8b8b');
         } else {
           // 远距离：冲锋
           const lunge = Math.min(48, d - 20);
@@ -649,7 +676,7 @@ function updateEnemies(dt){
     e.atkCd -= dt;
     if (ranged && d < 150 && d > 42 && e.atkCd <= 0 && !G.gameOver){
       e.atkCd = (G.bloodMoon ? 1.65 : 2.35) * (enraged ? 0.5 : 1);
-      const shotDx = player.x - e.x, shotDy = player.y - 9 - (e.y - 12);
+      const shotDx=target.x-e.x,shotDy=target.y-9-(e.y-12);
       const shotLen = Math.hypot(shotDx, shotDy) || 1;
       enemyShots.push({
         x:e.x, y:e.y - 12, vx:shotDx/shotLen * 76, vy:shotDy/shotLen * 76,
@@ -657,7 +684,8 @@ function updateEnemies(dt){
       });
     } else if (!ranged && d < 19 && e.atkCd <= 0 && !G.gameOver){
       e.atkCd = e.type === 'runner' || e.type === 'stalker' ? 0.8 : 1.1;
-      hurtPlayer(e.damage);
+      if(target.pet)damagePet(target.pet,e.damage);
+      else hurtPlayer(e.damage);
     }
 
     for (let j = i + 1; j < enemies.length; j++){
@@ -676,8 +704,19 @@ function updateEnemies(dt){
     shot.life -= dt;
     shot.x += shot.vx * dt;
     shot.y += shot.vy * dt;
-    if (Math.hypot(player.x - shot.x, player.y - 9 - shot.y) < 9){
-      hurtPlayer(shot.damage);
+    let hitTarget=null,hitDistance=Math.hypot(player.x-shot.x,player.y-9-shot.y);
+    if(hitDistance<9)hitTarget={pet:null};
+    for(const pet of pets){
+      if(pet.layer!==(G.worldLayer||'surface'))continue;
+      const distance=Math.hypot(pet.x-shot.x,pet.y-9-shot.y);
+      if(distance<9&&distance<hitDistance){
+        hitDistance=distance;
+        hitTarget={pet};
+      }
+    }
+    if(hitTarget){
+      if(hitTarget.pet)damagePet(hitTarget.pet,shot.damage);
+      else hurtPlayer(shot.damage);
       spawnParticles(shot.x, shot.y, shot.color, 5);
       enemyShots.splice(i, 1);
     } else if (shot.life<=0||(G.mapId&&(shot.x<0||shot.y<0||shot.x>WORLD_W||shot.y>WORLD_H))||

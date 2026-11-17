@@ -51,8 +51,8 @@ function useSelectedItem(){
   }
   const pet=pets.find(entry=>aimEntity(entry,wx,wy,TILE*1.0,TILE*1.2));
   if(pet){
-    pet.mode=pet.mode==='stay'?'follow':'stay';
-    showToast(pet.mode==='stay'?'宠物原地警戒中':'宠物开始跟随','#d8e0a0');
+    pet.mode='follow';
+    showToast('宠物会持续跟随并协助战斗','#d8e0a0');
     return;
   }
   const gate=placedBlocks.find(block=>block.type==='worldGate'&&aimEntity(block,wx,wy,TILE*1.2,TILE*1.6));

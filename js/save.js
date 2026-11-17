@@ -141,6 +141,8 @@ function validateSaveShape(s){
     pet.tamed!==true||!['follow','stay'].includes(pet.mode)||
     !Number.isFinite(pet.age)||pet.age<0||pet.age>1||
     !Number.isFinite(pet.hp)||pet.hp<=0||
+    pet.hp>PET_MAX_HP[pet.type]||pet.maxHp!==PET_MAX_HP[pet.type]||
+    (pet.invuln!==undefined&&(!Number.isFinite(pet.invuln)||pet.invuln<0||pet.invuln>0.55))||
     !Number.isFinite(pet.love)||pet.love<0||
     !Number.isFinite(pet.breedCooldown)||pet.breedCooldown<0||
     (pet.attackCooldown!==undefined&&(!Number.isFinite(pet.attackCooldown)||pet.attackCooldown<0||pet.attackCooldown>2))||
@@ -202,6 +204,7 @@ function prepareSaveData(rawState){
     const seenSlots = new Set();
     s.bagSlots = s.bagSlots.map(id => { if (!id || seenSlots.has(id)) return null; seenSlots.add(id); return id; });
   }
+  if(Array.isArray(s.pets))for(const pet of s.pets)if(isRecord(pet))normalizePetHealth(pet);
   validateSaveShape(s);
   migratePlayerAppearance(s);
   migrateGrowth(s);

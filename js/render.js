@@ -335,6 +335,7 @@ function mobKind(enemy){
 /* 怪物：用 MC 皮肤的 UV 部件（头/身/臂/腿）拼出来 */
 function drawMobSprites(){
   if (!window.MCTextures || !MCTextures.mobSprite || typeof worldToScreen !== 'function') return false;
+  const firstPerson = window.Pixel3D && typeof Pixel3D.firstPerson === 'function' && Pixel3D.firstPerson();
   let drew = 0;
   for (const enemy of enemies){
     if (!enemy || enemy.dead) continue;
@@ -345,13 +346,21 @@ function drawMobSprites(){
     if (!head || !head.complete){ head = MCTextures.mobSprite('zombie','head'); body = MCTextures.mobSprite('zombie','body'); arm = MCTextures.mobSprite('zombie','arm'); leg = MCTextures.mobSprite('zombie','leg'); }
     if (!head || !head.complete || !head.naturalWidth) continue;
     if (!body || !body.complete || !arm || !arm.complete || !leg || !leg.complete) continue;
-    const pos = worldToScreen(enemy.x, enemy.y);
+    const pos = firstPerson
+      ? worldToScreen(enemy.x, enemy.y, 0)
+      : worldToScreen(enemy.x, enemy.y);
     if (pos.x < -40 || pos.x > W + 40 || pos.y < -70 || pos.y > H + 40) continue;
-    // 透视缩放：离得越近越大（原来是固定尺寸，靠近时显得越来越小）
     const baseSize = enemy.boss ? 15 : enemy.fast ? 9 : 11;
     const distTiles = Math.hypot(enemy.x - player.x, enemy.y - player.y) / TILE;
     const distScale = Math.max(0.5, Math.min(2.4, 3.6 / Math.max(1.2, distTiles)));
-    const s = baseSize * distScale;
+    const top = firstPerson ? worldToScreen(enemy.x, enemy.y, 30) : null;
+    const bottom = firstPerson ? pos : null;
+    const projectedHeight = top && bottom && top.visible !== false && bottom.visible !== false
+      ? Math.abs(top.y - bottom.y)
+      : 0;
+    const s = projectedHeight > 0
+      ? projectedHeight * (baseSize / 11) / 2.95
+      : baseSize * distScale;
     const x = pos.x - s / 2, y = pos.y + 1;
     const flash = enemy.hitFlash > 0;
     ctx.save();

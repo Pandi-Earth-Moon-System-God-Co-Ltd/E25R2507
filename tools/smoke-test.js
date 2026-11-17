@@ -25,6 +25,7 @@ function makeContext(canvas) {
     globalAlpha: 1,
     globalCompositeOperation: 'source-over',
     imageSmoothingEnabled: false,
+    imageDrawCalls: [],
   };
   const gradient = { addColorStop() {} };
   const real = {
@@ -34,7 +35,7 @@ function makeContext(canvas) {
     createPattern() { return {}; },
     getImageData(x, y, w, h) { return { data: new Uint8ClampedArray(Math.max(1, w * h * 4)), width: w, height: h }; },
     putImageData() {},
-    drawImage() {},
+    drawImage(...args) { state.imageDrawCalls.push(args); },
     setTransform() {},
     getContextAttributes() { return {}; },
   };
@@ -395,6 +396,53 @@ run('第一人称视角切换（无 WebGL 时自动回退第三人称）', () =>
   if (!Number.isFinite(look.yaw) || !Number.isFinite(look.pitch)) throw new Error('视角状态无效');
   T.Pixel3D.setViewMode('third');
   if (T.Pixel3D.viewMode() !== 'third') throw new Error('第三人称未生效');
+});
+
+run('第一人称怪物按透视缩放', () => {
+  const heights = vm.runInContext(`(() => {
+    const original = {
+      active: Pixel3D.active,
+      firstPerson: Pixel3D.firstPerson,
+      project: Pixel3D.project,
+      mobSprite: MCTextures.mobSprite,
+      spritesOK: window.MOB_SPRITES_OK,
+      enemies,
+      x: player.x,
+      y: player.y
+    };
+    const image = { complete:true, naturalWidth:16 };
+    try {
+      Pixel3D.active = () => true;
+      Pixel3D.firstPerson = () => true;
+      Pixel3D.project = (x, y, height) => ({
+        x:240, y:200 - (height === undefined ? 10 : height) * window.__projectionScale,
+        visible:true
+      });
+      MCTextures.mobSprite = () => image;
+      enemies = [{ x:player.x, y:player.y, type:'zombie' }];
+      window.__projectionScale = 0.5;
+      ctx.imageDrawCalls.length = 0;
+      drawMobSprites();
+      const farHeight = ctx.imageDrawCalls[0][4];
+      window.__projectionScale = 2;
+      ctx.imageDrawCalls.length = 0;
+      drawMobSprites();
+      const nearHeight = ctx.imageDrawCalls[0][4];
+      return { farHeight, nearHeight };
+    } finally {
+      Pixel3D.active = original.active;
+      Pixel3D.firstPerson = original.firstPerson;
+      Pixel3D.project = original.project;
+      MCTextures.mobSprite = original.mobSprite;
+      window.MOB_SPRITES_OK = original.spritesOK;
+      enemies = original.enemies;
+      player.x = original.x;
+      player.y = original.y;
+      delete window.__projectionScale;
+    }
+  })()`, sandbox);
+  if (!(heights.nearHeight > heights.farHeight * 3.9))
+    throw new Error('近处怪物没有按相机透视显著变大：' + JSON.stringify(heights));
 });
 
 run('存档往返（含合成格物品）', () => {
